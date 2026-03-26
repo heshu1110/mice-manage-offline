@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const DB_NAME = "mice-manage-offline";
   const DB_VERSION = 1;
   const META_STORE = "meta";
@@ -96,7 +96,10 @@
   const processingTextEl = document.getElementById("processing-text");
 
   const updateFieldsEl = document.getElementById("update-fields");
-  const updateStrainEl = document.getElementById("update-strain");
+  const legacyUpdateStrainEl = document.getElementById("update-strain");
+  const updateMaleGenotypeEl =
+    document.getElementById("update-male-genotype") || legacyUpdateStrainEl;
+  const updateFemaleGenotypeEl = document.getElementById("update-female-genotype");
   const updateMaleCodeEl = document.getElementById("update-male-code");
   const updateFemaleCodeEl = document.getElementById("update-female-code");
   const updateSetupDateEl = document.getElementById("update-setup-date");
@@ -117,7 +120,10 @@
   );
   const createOwnerIdEl = document.getElementById("create-owner-id");
   const createOwnerFixedEl = document.getElementById("create-owner-fixed");
-  const createStrainEl = document.getElementById("create-strain");
+  const legacyCreateStrainEl = document.getElementById("create-strain");
+  const createMaleGenotypeEl =
+    document.getElementById("create-male-genotype") || legacyCreateStrainEl;
+  const createFemaleGenotypeEl = document.getElementById("create-female-genotype");
   const createMaleCodeEl = document.getElementById("create-male-code");
   const createFemaleCodeEl = document.getElementById("create-female-code");
   const createSetupDateEl = document.getElementById("create-setup-date");
@@ -167,6 +173,57 @@
     return ACTION_LABELS[value] || value;
   }
 
+  function sanitizeSyncMessage(value) {
+    const text = String(value || "").trim();
+    if (!text) {
+      return "";
+    }
+
+    const exact = {
+      "鍚屾鎴愬姛": "同步成功",
+      "????": "重复导入，已跳过",
+      "??? JSON????????": "已导出 JSON，等待服务器导入",
+    };
+    if (exact[text]) {
+      return exact[text];
+    }
+
+    if (text.startsWith("鏈壘鍒扮浣")) {
+      return text.replace("鏈壘鍒扮浣", "未找到笼位");
+    }
+    if (text.startsWith("涓嶆敮鎸佺殑鍔ㄤ綔绫诲瀷")) {
+      return text.replace("涓嶆敮鎸佺殑鍔ㄤ綔绫诲瀷", "不支持的动作类型");
+    }
+
+    return text;
+  }
+
+  function readFieldValue(element) {
+    return element ? element.value : "";
+  }
+
+  function writeFieldValue(element, value) {
+    if (element) {
+      element.value = value || "";
+    }
+  }
+
+  function currentUpdateMaleGenotypeValue() {
+    return readFieldValue(updateMaleGenotypeEl);
+  }
+
+  function currentUpdateFemaleGenotypeValue() {
+    return readFieldValue(updateFemaleGenotypeEl) || (updateFemaleGenotypeEl ? "" : readFieldValue(legacyUpdateStrainEl));
+  }
+
+  function currentCreateMaleGenotypeValue() {
+    return readFieldValue(createMaleGenotypeEl);
+  }
+
+  function currentCreateFemaleGenotypeValue() {
+    return readFieldValue(createFemaleGenotypeEl) || (createFemaleGenotypeEl ? "" : readFieldValue(legacyCreateStrainEl));
+  }
+
   function splitSearchTerms(value) {
     return String(value || "")
       .replace(/，/g, " ")
@@ -174,6 +231,14 @@
       .split(/\s+/)
       .map((term) => term.trim().toLowerCase())
       .filter(Boolean);
+  }
+
+  function resolvedMaleGenotype(cage) {
+    return cage.male_genotype || cage.strain || "";
+  }
+
+  function resolvedFemaleGenotype(cage) {
+    return cage.female_genotype || cage.strain || "";
   }
 
   function showNotice(message, tone) {
@@ -322,7 +387,13 @@
       bootstrap.cages.unshift({
         id: "local-" + item.op_id,
         cage_code: payload.cage_code,
-        strain: payload.strain || "",
+        strain:
+          payload.strain ||
+          [payload.male_genotype || "", payload.female_genotype || ""]
+            .filter(Boolean)
+            .join(" / "),
+        male_genotype: payload.male_genotype || payload.strain || "",
+        female_genotype: payload.female_genotype || payload.strain || "",
         status: payload.status || "",
         pup_count: Number(payload.pup_count || 0),
         owner_user_id: owner ? owner.id : "",
@@ -348,7 +419,13 @@
     }
 
     if (item.action_type === "update_cage_fields") {
-      cage.strain = payload.strain || "";
+      cage.strain =
+        payload.strain ||
+        [payload.male_genotype || "", payload.female_genotype || ""]
+          .filter(Boolean)
+          .join(" / ");
+      cage.male_genotype = payload.male_genotype || payload.strain || "";
+      cage.female_genotype = payload.female_genotype || payload.strain || "";
       cage.male_code = payload.male_code || "";
       cage.female_code = payload.female_code || "";
       cage.setup_date = payload.setup_date || "";
@@ -397,6 +474,8 @@
       const haystack = [
         cage.cage_code,
         cage.strain,
+        cage.male_genotype,
+        cage.female_genotype,
         cage.owner,
         cage.status,
         cage.room,
@@ -441,7 +520,10 @@
       "<div class='card-top'><div><h3>" +
       cage.cage_code +
       "</h3><p>" +
-      (cage.strain || "未填写品系") +
+      "父 " +
+      (resolvedMaleGenotype(cage) || "-") +
+      " / 母 " +
+      (resolvedFemaleGenotype(cage) || "-") +
       "</p></div><span class='status-badge'>" +
       (cage.status || "未填写状态") +
       "</span></div>" +
@@ -454,6 +536,12 @@
       "</dd></div>" +
       "<div><dt>负责人</dt><dd>" +
       (cage.owner || "未填写负责人") +
+      "</dd></div>" +
+      "<div><dt>父本基因型</dt><dd>" +
+      (resolvedMaleGenotype(cage) || "-") +
+      "</dd></div>" +
+      "<div><dt>母本基因型</dt><dd>" +
+      (resolvedFemaleGenotype(cage) || "-") +
       "</dd></div>" +
       "<div><dt>当前仔鼠数</dt><dd>" +
       Number(cage.pup_count || 0) +
@@ -496,7 +584,10 @@
         "<div class='card-top'><div><h2>" +
         cage.cage_code +
         "</h2><p>" +
-        (cage.strain || "未填写品系") +
+        "父 " +
+        (resolvedMaleGenotype(cage) || "-") +
+        " / 母 " +
+        (resolvedFemaleGenotype(cage) || "-") +
         "</p></div><span class='status-badge'>" +
         (cage.status || "未填写状态") +
         "</span></div>" +
@@ -575,7 +666,7 @@
 
     queueListEl.innerHTML = "";
     if (!filtered.length) {
-      queueListEl.innerHTML = "<p class='muted'>????????????</p>";
+      queueListEl.innerHTML = "<p class='muted'>当前筛选条件下没有记录。</p>";
       return;
     }
 
@@ -584,7 +675,7 @@
       block.className = "timeline-item";
       block.innerHTML =
         "<div class='timeline-head'><strong>" +
-        (item.cage_code || "?????") +
+        (item.cage_code || "未指定笼位") +
         " / " +
         actionTypeLabel(item.action_type) +
         "</strong><div class='timeline-head-actions'><span class='queue-status queue-" +
@@ -593,14 +684,14 @@
         statusLabel(item.sync_status) +
         "</span><button type='button' class='queue-delete-button' data-op-id='" +
         item.op_id +
-        "' aria-label='?????????'>?</button></div></div><p>" +
+        "' aria-label='删除这条待同步记录'>X</button></div></div><p>" +
         queuePayloadSummary(item) +
-        "</p><p class='muted'>??? " +
+        "</p><p class='muted'>操作人 " +
         item.operator_name +
-        " | ?? " +
+        " | 时间 " +
         formatTime(item.client_created_at) +
         "</p>" +
-        (item.sync_message ? "<p class='muted'>?????" + item.sync_message + "</p>" : "");
+        (item.sync_message ? "<p class='muted'>同步结果：" + sanitizeSyncMessage(item.sync_message) + "</p>" : "");
       queueListEl.appendChild(block);
     });
   }
@@ -611,7 +702,7 @@
     }
     await queueDelete(opId);
     await refreshQueueState();
-    showNotice("???????????", "success");
+    showNotice("已删除这条待同步记录。", "success");
   }
 
   async function saveBootstrap(payload) {
@@ -720,7 +811,8 @@
     if (!cage || currentActionType() !== "update_cage_fields") {
       return;
     }
-    updateStrainEl.value = cage.strain || "";
+    writeFieldValue(updateMaleGenotypeEl, resolvedMaleGenotype(cage));
+    writeFieldValue(updateFemaleGenotypeEl, resolvedFemaleGenotype(cage));
     updateMaleCodeEl.value = cage.male_code || "";
     updateFemaleCodeEl.value = cage.female_code || "";
     updateSetupDateEl.value = cage.setup_date || "";
@@ -746,7 +838,8 @@
       birth_note: birthNoteEl.value,
       birth_record_id: birthRecordIdEl.value,
       processing_text: processingTextEl.value,
-      update_strain: updateStrainEl.value,
+      update_male_genotype: currentUpdateMaleGenotypeValue(),
+      update_female_genotype: currentUpdateFemaleGenotypeValue(),
       update_male_code: updateMaleCodeEl.value,
       update_female_code: updateFemaleCodeEl.value,
       update_setup_date: updateSetupDateEl.value,
@@ -758,7 +851,8 @@
       create_room_name: createRoomNameEl.value,
       create_rack_name: createRackNameEl.value,
       create_owner_id: createOwnerIdEl.value,
-      create_strain: createStrainEl.value,
+      create_male_genotype: currentCreateMaleGenotypeValue(),
+      create_female_genotype: currentCreateFemaleGenotypeValue(),
       create_male_code: createMaleCodeEl.value,
       create_female_code: createFemaleCodeEl.value,
       create_setup_date: createSetupDateEl.value,
@@ -794,7 +888,8 @@
     populateBirthRecordOptions();
     birthRecordIdEl.value = draft.birth_record_id || birthRecordIdEl.value;
     processingTextEl.value = draft.processing_text || "";
-    updateStrainEl.value = draft.update_strain || "";
+    writeFieldValue(updateMaleGenotypeEl, draft.update_male_genotype || "");
+    writeFieldValue(updateFemaleGenotypeEl, draft.update_female_genotype || "");
     updateMaleCodeEl.value = draft.update_male_code || "";
     updateFemaleCodeEl.value = draft.update_female_code || "";
     updateSetupDateEl.value = draft.update_setup_date || "";
@@ -806,7 +901,8 @@
     createRoomNameEl.value = draft.create_room_name || "";
     createRackNameEl.value = draft.create_rack_name || "";
     createOwnerIdEl.value = draft.create_owner_id || createOwnerIdEl.value;
-    createStrainEl.value = draft.create_strain || "";
+    writeFieldValue(createMaleGenotypeEl, draft.create_male_genotype || "");
+    writeFieldValue(createFemaleGenotypeEl, draft.create_female_genotype || "");
     createMaleCodeEl.value = draft.create_male_code || "";
     createFemaleCodeEl.value = draft.create_female_code || "";
     createSetupDateEl.value = draft.create_setup_date || "";
@@ -825,7 +921,10 @@
   }
 
   async function refreshQueueState() {
-    state.queueItems = await queueList();
+    state.queueItems = (await queueList()).map((item) => ({
+      ...item,
+      sync_message: sanitizeSyncMessage(item.sync_message),
+    }));
     rebuildDerivedBootstrap();
     await initializeBootstrapOptions();
     populateBirthRecordOptions();
@@ -873,7 +972,8 @@
                 ) || {}
               ).name || ""
             : operator.name,
-        strain: createStrainEl.value.trim(),
+        male_genotype: currentCreateMaleGenotypeValue().trim(),
+        female_genotype: currentCreateFemaleGenotypeValue().trim(),
         male_code: createMaleCodeEl.value.trim(),
         female_code: createFemaleCodeEl.value.trim(),
         setup_date: createSetupDateEl.value,
@@ -922,7 +1022,8 @@
 
     item.payload = {
       base_updated_at: cage.updated_at || "",
-      strain: updateStrainEl.value.trim(),
+      male_genotype: currentUpdateMaleGenotypeValue().trim(),
+      female_genotype: currentUpdateFemaleGenotypeValue().trim(),
       male_code: updateMaleCodeEl.value.trim(),
       female_code: updateFemaleCodeEl.value.trim(),
       setup_date: updateSetupDateEl.value,
@@ -973,7 +1074,7 @@
         syncResult.status === "success" || syncResult.status === "duplicate"
           ? "success"
           : "failed";
-      item.sync_message = syncResult.message;
+      item.sync_message = sanitizeSyncMessage(syncResult.message);
       await queuePut(item);
     }
 
@@ -1059,7 +1160,7 @@
       (item) => item.sync_status === "pending" || item.sync_status === "failed"
     );
     if (!exportableItems.length) {
-      showNotice("??????????", "info");
+      showNotice("当前没有待导出记录。", "info");
       return;
     }
 
@@ -1069,17 +1170,16 @@
 
     for (const item of exportableItems) {
       item.sync_status = "success";
-      item.sync_message = "??? JSON????????";
+      item.sync_message = "已导出 JSON，等待服务器导入";
       await queuePut(item);
     }
 
     await refreshQueueState();
     showNotice(
-      "??? " + exportableItems.length + " ????????????????????????????????????",
+      "已导出 " + exportableItems.length + " 条记录，并标记为已导出。确认服务器导入成功后，再点击“清理已同步记录”。",
       "success"
     );
   }
-
 
   async function importBootstrapFromFile(file) {
     if (!file) {
@@ -1211,7 +1311,8 @@
       birthNoteEl,
       birthRecordIdEl,
       processingTextEl,
-      updateStrainEl,
+      updateMaleGenotypeEl,
+      updateFemaleGenotypeEl,
       updateMaleCodeEl,
       updateFemaleCodeEl,
       updateSetupDateEl,
@@ -1223,7 +1324,8 @@
       createRoomNameEl,
       createRackNameEl,
       createOwnerIdEl,
-      createStrainEl,
+      createMaleGenotypeEl,
+      createFemaleGenotypeEl,
       createMaleCodeEl,
       createFemaleCodeEl,
       createSetupDateEl,
@@ -1379,7 +1481,7 @@
       if (!opId) {
         return;
       }
-      if (!window.confirm("?????????????")) {
+      if (!window.confirm("确认删除这条待同步记录吗？")) {
         return;
       }
       await deleteQueueItem(opId);

@@ -32,8 +32,8 @@ app = FastAPI(title="Mice Manage MVP")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-STATUS_OPTIONS = ["绻佹畺", "瀹為獙"]
-ACTION_OPTIONS = ["鏌ョ湅", "鍙栫敤", "褰掕繕", "琛ョ", "鎹㈢", "娓呯", "澶囨敞"]
+STATUS_OPTIONS = ["繁殖", "实验"]
+ACTION_OPTIONS = ["查看", "取用", "归还", "补笼", "换笼", "清笼", "备注"]
 
 
 class SyncItem(BaseModel):
@@ -69,6 +69,7 @@ def bootstrap() -> None:
     try:
         normalize_users(db)
         seed_data(db)
+        normalize_cage_genotypes(db)
         normalize_cage_statuses(db)
     finally:
         db.close()
@@ -80,8 +81,26 @@ def ensure_schema() -> None:
             row[1]
             for row in conn.execute(text("PRAGMA table_info(cages)")).fetchall()
         }
+        if "male_genotype" not in cage_columns:
+            conn.execute(text("ALTER TABLE cages ADD COLUMN male_genotype VARCHAR(100)"))
+        if "female_genotype" not in cage_columns:
+            conn.execute(text("ALTER TABLE cages ADD COLUMN female_genotype VARCHAR(100)"))
         if "cage_tag_image" not in cage_columns:
             conn.execute(text("ALTER TABLE cages ADD COLUMN cage_tag_image VARCHAR(255)"))
+        conn.execute(
+            text(
+                "UPDATE cages SET male_genotype = strain "
+                "WHERE (male_genotype IS NULL OR male_genotype = '') "
+                "AND strain IS NOT NULL AND strain != ''"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE cages SET female_genotype = strain "
+                "WHERE (female_genotype IS NULL OR female_genotype = '') "
+                "AND strain IS NOT NULL AND strain != ''"
+            )
+        )
         user_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()
@@ -125,9 +144,32 @@ def normalize_users(db: Session) -> None:
 def normalize_cage_statuses(db: Session) -> None:
     changed = False
     for cage in db.query(Cage).all():
-        normalized = "瀹為獙" if str(cage.status or "").strip() == "瀹為獙" else "绻佹畺"
+        current = str(cage.status or "").strip()
+        normalized = "实验" if current in {"实验", "瀹為獙"} else "繁殖"
         if cage.status != normalized:
             cage.status = normalized
+            changed = True
+    if changed:
+        db.commit()
+
+
+def normalize_cage_genotypes(db: Session) -> None:
+    changed = False
+    for cage in db.query(Cage).all():
+        male, female = resolve_genotypes(
+            cage.male_genotype,
+            cage.female_genotype,
+            cage.strain,
+        )
+        derived_strain = derive_legacy_strain(male, female, cage.strain)
+        if cage.male_genotype != (male or None):
+            cage.male_genotype = male or None
+            changed = True
+        if cage.female_genotype != (female or None):
+            cage.female_genotype = female or None
+            changed = True
+        if cage.strain != derived_strain:
+            cage.strain = derived_strain
             changed = True
     if changed:
         db.commit()
@@ -208,7 +250,7 @@ def can_edit_cage(user: User, cage: Cage) -> bool:
 
 
 def is_experiment_cage(cage: Cage) -> bool:
-    return str(cage.status or "").strip() == "瀹為獙"
+    return str(cage.status or "").strip() in {"实验", "瀹為獙"}
 
 
 def build_context(request: Request, db: Session, extra: dict | None = None) -> dict:
@@ -435,11 +477,58 @@ def build_birth_summary(cage: Cage) -> dict[str, Any] | None:
     return records[0] if records else None
 
 
+def split_parent_codes(value: str | None) -> list[str]:
+    text = str(value or "").replace("\r", "\n")
+    parts = [item.strip() for item in text.split("\n") if item.strip()]
+    return parts or [""]
+
+
+def join_parent_codes(values: list[str] | None) -> str | None:
+    if not values:
+        return None
+    cleaned = [str(item).strip() for item in values if str(item).strip()]
+    return "\n".join(cleaned) if cleaned else None
+
+
+def normalize_genotype(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def resolve_genotypes(
+    male_genotype: Any = "",
+    female_genotype: Any = "",
+    legacy_strain: Any = "",
+) -> tuple[str, str]:
+    male = normalize_genotype(male_genotype)
+    female = normalize_genotype(female_genotype)
+    legacy = normalize_genotype(legacy_strain)
+    if not male and not female and legacy:
+        return legacy, legacy
+    return male, female
+
+
+def derive_legacy_strain(
+    male_genotype: Any = "",
+    female_genotype: Any = "",
+    legacy_strain: Any = "",
+) -> str:
+    male, female = resolve_genotypes(male_genotype, female_genotype, legacy_strain)
+    if male and female:
+        return male if male == female else f"父:{male} / 母:{female}"
+    return male or female or normalize_genotype(legacy_strain)
+
+
 def sanitize_record_action(value: str | None) -> str:
     text = str(value or "").strip()
     replacements = {
-        "??": "鏇存柊",
-        "????": "鏂扮敓鐧昏",
+        "??": "更新",
+        "鏇存柊": "更新",
+        "????": "新生登记",
+        "鏂扮敓鐧昏": "新生登记",
+        "鏂扮敓鐧昏".replace("", "\ue187"): "新生登记",
+        "鏂板": "新增",
+        "鏂板".replace("", "\ue583"): "新增",
+        "澶囨敞": "备注",
     }
     return replacements.get(text, text or "-")
 
@@ -457,9 +546,12 @@ def sanitize_record_purpose(record: UsageRecord) -> str:
 
     text = str(record.purpose or "").strip()
     replacements = {
-        "????": "鏂板绗间綅",
-        "??????": "鏇存柊绗间綅淇℃伅",
-        "??????": "鏇存柊绗间綅淇℃伅",
+        "????": "新增笼位",
+        "??????": "更新笼位信息",
+        "鏇存柊绗间綅淇℃伅": "更新笼位信息",
+        "绂荤嚎鍚屾鏂板绗间綅": "离线同步新增笼位",
+        "绂荤嚎鍚屾鏂板绗间綅".replace("", "\ue11e").replace("", "\ue583"): "离线同步新增笼位",
+        "绂荤嚎鍚屾鏇存柊绗间綅瀛楁": "离线同步更新笼位字段",
     }
     return replacements.get(text, text or "-")
 
@@ -472,10 +564,18 @@ def sanitize_record_note(record: UsageRecord) -> str:
 
     if text.startswith("???? "):
         cage_code = text.replace("???? ", "", 1).strip()
-        return f"鏂板绗间綅 {cage_code}" if cage_code else "鏂板绗间綅"
+        return f"新增笼位 {cage_code}" if cage_code else "新增笼位"
+    if text.startswith("鏂板绗间綅 ") or text.startswith("鏂板绗间綅 ".replace("", "\ue583")):
+        cage_code = text.replace("鏂板绗间綅 ", "", 1).replace("鏂板绗间綅 ".replace("", "\ue583"), "", 1).strip()
+        return f"新增笼位 {cage_code}" if cage_code else "新增笼位"
     if text.startswith("??? ") and text.endswith(" ?????"):
         cage_code = text.replace("??? ", "", 1).replace(" ?????", "").strip()
-        return f"鏇存柊绗间綅 {cage_code} 淇℃伅" if cage_code else "鏇存柊绗间綅淇℃伅"
+        return f"更新笼位 {cage_code} 信息" if cage_code else "更新笼位信息"
+    if text.startswith("鏇存柊绗间綅 ") and text.endswith(" 淇℃伅"):
+        cage_code = text.replace("鏇存柊绗间綅 ", "", 1).replace(" 淇℃伅", "").strip()
+        return f"更新笼位 {cage_code} 信息" if cage_code else "更新笼位信息"
+    if text == "绂荤嚎鍚屾鏇存柊绗间綅淇℃伅":
+        return "离线同步更新笼位信息"
     return text or "-"
 
 
@@ -483,8 +583,22 @@ def needs_generation_alert(cage: Cage, today: date) -> bool:
     if is_experiment_cage(cage):
         return False
     setup_date_alert = bool(cage.setup_date and today >= add_months(cage.setup_date, 5))
-    birth_count_alert = len(build_birth_records(cage)) >= 4
-    return setup_date_alert or birth_count_alert
+    birth_dates: list[date] = []
+    for birth_record in build_birth_records(cage):
+        birth_date_text = str(birth_record["birth_date"]).strip()
+        if not birth_date_text or birth_date_text == "-":
+            continue
+        try:
+            birth_date_value = parse_optional_date(birth_date_text)
+        except ValueError:
+            continue
+        birth_dates.append(birth_date_value)
+
+    birth_dates.sort()
+    overall_gap_alert = (
+        len(birth_dates) >= 2 and (birth_dates[-1] - birth_dates[0]).days > 100
+    )
+    return setup_date_alert or overall_gap_alert
 
 
 def needs_overcrowding_alert(cage: Cage, today: date) -> bool:
@@ -637,6 +751,8 @@ def serialize_bootstrap_cage(cage: Cage) -> dict[str, Any]:
         "id": cage.id,
         "cage_code": cage.cage_code,
         "strain": cage.strain,
+        "male_genotype": cage.male_genotype,
+        "female_genotype": cage.female_genotype,
         "status": cage.status,
         "pup_count": cage.pup_count,
         "owner_user_id": cage.owner_user_id,
@@ -729,7 +845,7 @@ def sync_add_usage_record(db: Session, cage: Cage, operator: User, payload: dict
         UsageRecord(
             cage_id=cage.id,
             user_id=operator.id,
-            action=str(payload.get("action") or "澶囨敞"),
+            action=str(payload.get("action") or "备注"),
             purpose=str(payload.get("purpose") or "").strip() or None,
             note=str(payload.get("note") or "").strip() or None,
         )
@@ -750,7 +866,14 @@ def sync_update_cage_fields(db: Session, cage: Cage, operator: User, payload: di
         cage.room_id = room.id
         cage.rack_id = rack.id
 
-    cage.strain = str(payload.get("strain") or "").strip()
+    male_genotype, female_genotype = resolve_genotypes(
+        payload.get("male_genotype"),
+        payload.get("female_genotype"),
+        payload.get("strain"),
+    )
+    cage.male_genotype = male_genotype or None
+    cage.female_genotype = female_genotype or None
+    cage.strain = derive_legacy_strain(male_genotype, female_genotype, payload.get("strain"))
     cage.male_code = str(payload.get("male_code") or "").strip() or None
     cage.female_code = str(payload.get("female_code") or "").strip() or None
     setup_date = str(payload.get("setup_date") or "").strip()
@@ -762,9 +885,9 @@ def sync_update_cage_fields(db: Session, cage: Cage, operator: User, payload: di
         UsageRecord(
             cage_id=cage.id,
             user_id=operator.id,
-            action="澶囨敞",
-            purpose="绂荤嚎鍚屾鏇存柊绗间綅瀛楁",
-            note="绂荤嚎鍚屾鏇存柊绗间綅淇℃伅",
+            action="备注",
+            purpose="离线同步更新笼位字段",
+            note="离线同步更新笼位信息",
         )
     )
 
@@ -784,7 +907,7 @@ def sync_add_birth_record(db: Session, cage: Cage, operator: User, payload: dict
     record = UsageRecord(
         cage_id=cage.id,
         user_id=operator.id,
-        action="鏂扮敓鐧昏",
+        action="新生登记",
         purpose=serialize_birth_purpose(
             birth_date_value,
             count,
@@ -846,13 +969,20 @@ def sync_create_cage(db: Session, operator: User, payload: dict[str, Any]) -> Ca
     room = get_or_create_room(db, room_name) if room_name else get_default_room(db)
     rack = get_or_create_rack(db, room, rack_name) if rack_name else get_default_rack(db, room)
     setup_date = str(payload.get("setup_date") or "").strip()
+    male_genotype, female_genotype = resolve_genotypes(
+        payload.get("male_genotype"),
+        payload.get("female_genotype"),
+        payload.get("strain"),
+    )
 
     cage = Cage(
         cage_code=cage_code,
         room_id=room.id,
         rack_id=rack.id,
         owner_user_id=owner.id,
-        strain=str(payload.get("strain") or "").strip(),
+        strain=derive_legacy_strain(male_genotype, female_genotype, payload.get("strain")),
+        male_genotype=male_genotype or None,
+        female_genotype=female_genotype or None,
         male_code=str(payload.get("male_code") or "").strip() or None,
         female_code=str(payload.get("female_code") or "").strip() or None,
         setup_date=parse_optional_date(setup_date) if setup_date else None,
@@ -866,9 +996,9 @@ def sync_create_cage(db: Session, operator: User, payload: dict[str, Any]) -> Ca
         UsageRecord(
             cage_id=cage.id,
             user_id=operator.id,
-            action="鏂板",
-            purpose="绂荤嚎鍚屾鏂板绗间綅",
-            note=f"鏂板绗间綅 {cage.cage_code}",
+            action="新增",
+            purpose="离线同步新增笼位",
+            note=f"新增笼位 {cage.cage_code}",
         )
     )
     return cage
@@ -880,7 +1010,7 @@ def process_sync_item(db: Session, item: SyncItem) -> dict[str, Any]:
         return {
             "op_id": item.op_id,
             "status": "duplicate",
-            "message": "????",
+            "message": "重复导入，已跳过",
         }
 
     operator = resolve_operator(db, item.operator_name)
@@ -901,7 +1031,7 @@ def process_sync_item(db: Session, item: SyncItem) -> dict[str, Any]:
                 return {
                     "op_id": item.op_id,
                     "status": "failed",
-                    "message": f"鏈壘鍒扮浣?{item.cage_code}",
+                    "message": f"未找到笼位：{item.cage_code}",
                 }
 
             if action_type == "add_usage_record":
@@ -917,7 +1047,7 @@ def process_sync_item(db: Session, item: SyncItem) -> dict[str, Any]:
                 return {
                     "op_id": item.op_id,
                     "status": "failed",
-                    "message": f"涓嶆敮鎸佺殑鍔ㄤ綔绫诲瀷: {item.action_type}",
+                    "message": f"不支持的动作类型：{item.action_type}",
                 }
 
         db.add(
@@ -935,7 +1065,7 @@ def process_sync_item(db: Session, item: SyncItem) -> dict[str, Any]:
         return {
             "op_id": item.op_id,
             "status": "success",
-            "message": "鍚屾鎴愬姛",
+            "message": "同步成功",
         }
     except (PermissionError, ValueError) as error:
         db.rollback()
@@ -1008,8 +1138,8 @@ def home(
             or_(
                 Cage.cage_code.ilike(like_value),
                 Cage.strain.ilike(like_value),
-                Cage.male_code.ilike(like_value),
-                Cage.female_code.ilike(like_value),
+                Cage.male_genotype.ilike(like_value),
+                Cage.female_genotype.ilike(like_value),
                 User.name.ilike(like_value),
             )
         )
@@ -1056,7 +1186,13 @@ def home(
                 "generation_alerts": generation_alerts,
                 "overcrowding_alerts": overcrowding_alerts,
                 "infertility_alerts": infertility_alerts,
-                "rooms": db.query(Room).order_by(Room.name).all(),
+                "rooms": (
+                    db.query(Room)
+                    .join(Cage, Cage.room_id == Room.id)
+                    .distinct()
+                    .order_by(Room.name)
+                    .all()
+                ),
                 "owners": visible_users_query(db).order_by(User.name).all(),
                 "status_options": STATUS_OPTIONS,
                 "filters": {
@@ -1117,6 +1253,8 @@ def new_cage_page(request: Request, db: Session = Depends(get_db)):
                 "status_options": STATUS_OPTIONS,
                 "can_choose_owner": user.role == "admin",
                 "fixed_owner": user,
+                "male_code_values": [""],
+                "female_code_values": [""],
             },
         ),
     )
@@ -1129,9 +1267,11 @@ def create_cage(
     room_name: str = Form(""),
     rack_name: str = Form(""),
     owner_user_id: str = Form(""),
+    male_genotype: str = Form(""),
+    female_genotype: str = Form(""),
     strain: str = Form(""),
-    male_code: str = Form(""),
-    female_code: str = Form(""),
+    male_code: list[str] = Form([]),
+    female_code: list[str] = Form([]),
     setup_date: str = Form(""),
     birth_date: str = Form(""),
     wean_date: str = Form(""),
@@ -1153,15 +1293,22 @@ def create_cage(
     owner = user if user.role == "owner" else resolve_optional_owner(db, owner_user_id)
     room = get_or_create_room(db, room_name) if room_name.strip() else get_default_room(db)
     rack = get_or_create_rack(db, room, rack_name) if rack_name.strip() else get_default_rack(db, room)
+    resolved_male_genotype, resolved_female_genotype = resolve_genotypes(
+        male_genotype,
+        female_genotype,
+        strain,
+    )
 
     cage = Cage(
         cage_code=cage_code,
         room_id=room.id,
         rack_id=rack.id,
         owner_user_id=owner.id,
-        strain=strain.strip(),
-        male_code=male_code.strip() or None,
-        female_code=female_code.strip() or None,
+        strain=derive_legacy_strain(resolved_male_genotype, resolved_female_genotype, strain),
+        male_genotype=resolved_male_genotype or None,
+        female_genotype=resolved_female_genotype or None,
+        male_code=join_parent_codes(male_code),
+        female_code=join_parent_codes(female_code),
         setup_date=parse_optional_date(setup_date),
         birth_date=parse_optional_date(birth_date),
         wean_date=parse_optional_date(wean_date),
@@ -1175,9 +1322,9 @@ def create_cage(
         UsageRecord(
             cage_id=cage.id,
             user_id=user.id,
-            action="鏂板",
-            purpose="鏂板绗间綅",
-            note=f"鏂板绗间綅 {cage.cage_code}",
+            action="新增",
+            purpose="新增笼位",
+            note=f"新增笼位 {cage.cage_code}",
         )
     )
     db.commit()
@@ -1212,7 +1359,7 @@ def add_birth_record(
         UsageRecord(
             cage_id=cage.id,
             user_id=user.id,
-            action="鏂扮敓鐧昏",
+            action="新生登记",
             purpose=serialize_birth_purpose(
                 birth_date_value.strip(),
                 count,
@@ -1672,8 +1819,18 @@ def cage_detail(cage_id: int, request: Request, db: Session = Depends(get_db)):
             db,
             {
                 "cage": cage,
+                "record_view": {
+                    record.id: {
+                        "action": sanitize_record_action(record.action),
+                        "purpose": sanitize_record_purpose(record),
+                        "note": sanitize_record_note(record),
+                    }
+                    for record in cage.usage_records
+                },
                 "birth_records": build_birth_records(cage),
                 "cage_tag_image": cage.cage_tag_image,
+                "male_code_values": split_parent_codes(cage.male_code),
+                "female_code_values": split_parent_codes(cage.female_code),
                 "users": visible_users_query(db).order_by(User.name).all(),
                 "status_options": STATUS_OPTIONS,
                 "action_options": ACTION_OPTIONS,
@@ -1688,9 +1845,11 @@ def update_cage(
     cage_id: int,
     request: Request,
     cage_code: str = Form(...),
+    male_genotype: str = Form(""),
+    female_genotype: str = Form(""),
     strain: str = Form(""),
-    male_code: str = Form(""),
-    female_code: str = Form(""),
+    male_code: list[str] = Form([]),
+    female_code: list[str] = Form([]),
     setup_date: str = Form(""),
     birth_date: str = Form(""),
     room_name: str = Form(""),
@@ -1725,11 +1884,18 @@ def update_cage(
         cage.owner_user_id = owner_user_id
     room = get_or_create_room(db, room_name)
     rack = get_or_create_rack(db, room, rack_name)
+    resolved_male_genotype, resolved_female_genotype = resolve_genotypes(
+        male_genotype,
+        female_genotype,
+        strain,
+    )
 
     cage.cage_code = cage_code
-    cage.strain = strain.strip()
-    cage.male_code = male_code.strip() or None
-    cage.female_code = female_code.strip() or None
+    cage.strain = derive_legacy_strain(resolved_male_genotype, resolved_female_genotype, strain)
+    cage.male_genotype = resolved_male_genotype or None
+    cage.female_genotype = resolved_female_genotype or None
+    cage.male_code = join_parent_codes(male_code)
+    cage.female_code = join_parent_codes(female_code)
     cage.setup_date = parse_optional_date(setup_date)
     cage.birth_date = parse_optional_date(birth_date)
     cage.rack_id = rack.id
@@ -1742,9 +1908,9 @@ def update_cage(
         UsageRecord(
             cage_id=cage.id,
             user_id=user.id,
-            action="鏇存柊",
-            purpose="鏇存柊绗间綅淇℃伅",
-            note=f"鏇存柊绗间綅 {cage.cage_code} 淇℃伅",
+            action="更新",
+            purpose="更新笼位信息",
+            note=f"更新笼位 {cage.cage_code} 信息",
         )
     )
     db.commit()
@@ -1982,7 +2148,19 @@ async def import_sync_json(
         query = urlencode(
             {
                 "import_status": "error",
-                "import_message": "???????????? UTF-8 JSON",
+                "import_message": "导入失败：文件不是有效的 UTF-8 JSON",
+            }
+        )
+        return RedirectResponse(
+            url=f"{next_url}?{query}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if isinstance(payload_data, dict) and "items" not in payload_data and "cages" in payload_data:
+        query = urlencode(
+            {
+                "import_status": "error",
+                "import_message": "你上传的是基础数据 JSON。这个页面只能导入待同步 JSON，请上传 mice-manage-sync-*.json 文件。",
             }
         )
         return RedirectResponse(
@@ -1996,7 +2174,7 @@ async def import_sync_json(
         query = urlencode(
             {
                 "import_status": "error",
-                "import_message": "?????JSON ?? items ??",
+                "import_message": "导入失败：JSON 缺少 items 数组，或文件结构不是待同步 JSON。",
             }
         )
         return RedirectResponse(
@@ -2010,9 +2188,9 @@ async def import_sync_json(
         {
             "import_status": "success" if summary["failed_count"] == 0 else "warn",
             "import_message": (
-                f"瀵煎叆瀹屾垚锛氭垚鍔?{summary['success_count']} 鏉★紝"
-                f"澶辫触 {summary['failed_count']} 鏉★紝"
-                f"?? {summary['duplicate_count']} ?",
+                f"导入完成：成功 {summary['success_count']} 条，"
+                f"失败 {summary['failed_count']} 条，"
+                f"重复 {summary['duplicate_count']} 条",
             ),
         }
     )
@@ -2038,6 +2216,8 @@ def api_cages(db: Session = Depends(get_db)):
             "rack": cage.rack.name,
             "owner": cage.owner.name,
             "strain": cage.strain,
+            "male_genotype": cage.male_genotype,
+            "female_genotype": cage.female_genotype,
             "status": cage.status,
             "pup_count": cage.pup_count,
             "notes": cage.notes,
@@ -2063,6 +2243,8 @@ def api_cage_detail(cage_id: int, db: Session = Depends(get_db)):
         "rack": cage.rack.name,
         "owner": cage.owner.name,
         "strain": cage.strain,
+        "male_genotype": cage.male_genotype,
+        "female_genotype": cage.female_genotype,
         "male_code": cage.male_code,
         "female_code": cage.female_code,
         "setup_date": cage.setup_date,

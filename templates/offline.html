@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block content %}
 <section class="panel hero-panel">
@@ -120,7 +120,7 @@
                 <select id="offline-room-filter"></select>
 
                 <label for="offline-cage-search">快速搜索笼位</label>
-                <input id="offline-cage-search" type="text" placeholder="输入笼号 / 房间 / 负责人 / 品系">
+                <input id="offline-cage-search" type="text" placeholder="输入笼号 / 房间 / 负责人 / 基因型">
 
                 <label for="cage-code">笼位</label>
                 <select id="cage-code"></select>
@@ -160,8 +160,11 @@
             </div>
 
             <div id="update-fields" class="stack-form action-fields hidden">
-                <label for="update-strain">品系 / 基因型</label>
-                <input id="update-strain" type="text">
+                <label for="update-male-genotype">父本基因型</label>
+                <input id="update-male-genotype" type="text">
+
+                <label for="update-female-genotype">母本基因型</label>
+                <input id="update-female-genotype" type="text">
 
                 <label for="update-male-code">父本编号-DOB</label>
                 <input id="update-male-code" type="text">
@@ -204,8 +207,11 @@
                     <input id="create-owner-fixed" type="text" disabled>
                 </div>
 
-                <label for="create-strain">品系 / 基因型</label>
-                <input id="create-strain" type="text">
+                <label for="create-male-genotype">父本基因型</label>
+                <input id="create-male-genotype" type="text">
+
+                <label for="create-female-genotype">母本基因型</label>
+                <input id="create-female-genotype" type="text">
 
                 <label for="create-male-code">父本编号-DOB</label>
                 <input id="create-male-code" type="text">
@@ -273,7 +279,7 @@
         </div>
 
         <label for="cage-search">搜索笼位</label>
-        <input id="cage-search" type="text" placeholder="搜索笼号、品系、负责人、状态">
+        <input id="cage-search" type="text" placeholder="搜索笼号、基因型、负责人、状态">
 
         <div id="cage-cache-list" class="card-grid"></div>
     </article>
@@ -282,5 +288,5 @@
 <script id="bootstrap-data" type="application/json">{{ bootstrap_payload | tojson }}</script>
 <script id="offline-operator-data" type="application/json">{{ offline_operator | tojson }}</script>
 <script id="offline-config" type="application/json">{{ {"mode": "server", "api_base_url": ""} | tojson }}</script>
-<script src="/static/offline.js"></script>
+<script src="/static/offline.js?v=20260326g"></script>
 {% endblock %}

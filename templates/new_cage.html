@@ -33,8 +33,11 @@
         <input type="text" value="{{ fixed_owner.name }}" disabled>
         {% endif %}
 
-        <label>品系</label>
-        <input type="text" name="strain" placeholder="例如 C57BL/6">
+        <label>父本基因型</label>
+        <input type="text" name="male_genotype" placeholder="例如 C57BL/6">
+
+        <label>母本基因型</label>
+        <input type="text" name="female_genotype" placeholder="例如 APP/PS1">
 
         <label>状态</label>
         <select name="status_value">
@@ -44,11 +47,37 @@
             {% endfor %}
         </select>
 
-        <label>父本编号-DOB</label>
-        <input type="text" name="male_code" placeholder="可选">
+        <div class="field-header-inline">
+            <label>父本编号-DOB</label>
+            <button type="button" class="ghost-button tiny-inline-button add-parent-code" data-target="create-male-code-list" data-base-label="父本编号-DOB" data-placeholder="可选">+</button>
+        </div>
+        <div id="create-male-code-list" class="multi-code-list" data-name="male_code" data-base-label="父本编号-DOB" data-placeholder="可选">
+            {% for code in male_code_values %}
+            <div class="multi-code-row">
+                <label class="sub-field-label">父本编号-DOB{% if loop.index > 1 %}/{{ loop.index }}{% endif %}</label>
+                <div class="multi-code-input-row">
+                    <input type="text" name="male_code" value="{{ code }}" placeholder="可选">
+                    <button type="button" class="ghost-button remove-inline-button remove-parent-code" aria-label="删除这条父本编号">-</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
 
-        <label>母本编号-DOB</label>
-        <input type="text" name="female_code" placeholder="可选">
+        <div class="field-header-inline">
+            <label>母本编号-DOB</label>
+            <button type="button" class="ghost-button tiny-inline-button add-parent-code" data-target="create-female-code-list" data-base-label="母本编号-DOB" data-placeholder="可选">+</button>
+        </div>
+        <div id="create-female-code-list" class="multi-code-list" data-name="female_code" data-base-label="母本编号-DOB" data-placeholder="可选">
+            {% for code in female_code_values %}
+            <div class="multi-code-row">
+                <label class="sub-field-label">母本编号-DOB{% if loop.index > 1 %}/{{ loop.index }}{% endif %}</label>
+                <div class="multi-code-input-row">
+                    <input type="text" name="female_code" value="{{ code }}" placeholder="可选">
+                    <button type="button" class="ghost-button remove-inline-button remove-parent-code" aria-label="删除这条母本编号">-</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
 
         <label>合笼日期</label>
         <input type="date" name="setup_date">
@@ -65,4 +94,99 @@
         <button type="submit">保存笼位</button>
     </form>
 </section>
+
+<script>
+    (function () {
+        function relabelCodeRows(list) {
+            const baseLabel = list.getAttribute("data-base-label") || "";
+            const rows = list.querySelectorAll(".multi-code-row");
+            rows.forEach(function (row, index) {
+                const label = row.querySelector(".sub-field-label");
+                const removeButton = row.querySelector(".remove-parent-code");
+                const currentIndex = index + 1;
+                if (label) {
+                    label.textContent = currentIndex === 1 ? baseLabel : baseLabel + "/" + currentIndex;
+                }
+                if (removeButton) {
+                    removeButton.setAttribute("aria-label", "删除这条" + (currentIndex === 1 ? baseLabel : baseLabel + "/" + currentIndex));
+                }
+            });
+        }
+
+        function createCodeRow(name, baseLabel, index, value, placeholder) {
+            const row = document.createElement("div");
+            row.className = "multi-code-row";
+
+            const label = document.createElement("label");
+            label.className = "sub-field-label";
+            label.textContent = index === 1 ? baseLabel : baseLabel + "/" + index;
+
+            const inputWrap = document.createElement("div");
+            inputWrap.className = "multi-code-input-row";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.name = name;
+            input.value = value || "";
+            input.placeholder = placeholder || "";
+
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "ghost-button remove-inline-button remove-parent-code";
+            removeButton.textContent = "-";
+            removeButton.setAttribute("aria-label", "删除这条" + (index === 1 ? baseLabel : baseLabel + "/" + index));
+
+            inputWrap.appendChild(input);
+            inputWrap.appendChild(removeButton);
+            row.appendChild(label);
+            row.appendChild(inputWrap);
+            return row;
+        }
+
+        document.querySelectorAll(".add-parent-code").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const targetId = button.getAttribute("data-target");
+                const baseLabel = button.getAttribute("data-base-label") || "";
+                const list = document.getElementById(targetId);
+                if (!list) {
+                    return;
+                }
+                const name = list.getAttribute("data-name");
+                const placeholder = list.getAttribute("data-placeholder") || "";
+                const nextIndex = list.querySelectorAll(".multi-code-row").length + 1;
+                list.appendChild(createCodeRow(name, baseLabel, nextIndex, "", placeholder));
+                relabelCodeRows(list);
+            });
+        });
+
+        document.querySelectorAll(".multi-code-list").forEach(function (list) {
+            list.addEventListener("click", function (event) {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) {
+                    return;
+                }
+                const removeButton = target.closest(".remove-parent-code");
+                if (!removeButton) {
+                    return;
+                }
+
+                const rows = list.querySelectorAll(".multi-code-row");
+                if (rows.length <= 1) {
+                    const input = list.querySelector("input[name]");
+                    if (input) {
+                        input.value = "";
+                    }
+                    return;
+                }
+
+                const row = removeButton.closest(".multi-code-row");
+                if (row) {
+                    row.remove();
+                    relabelCodeRows(list);
+                }
+            });
+            relabelCodeRows(list);
+        });
+    })();
+</script>
 {% endblock %}

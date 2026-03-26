@@ -51,6 +51,8 @@ class Cage(Base):
     rack_id: Mapped[int] = mapped_column(ForeignKey("racks.id"), nullable=False)
     owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     strain: Mapped[str] = mapped_column(String(100), nullable=False)
+    male_genotype: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    female_genotype: Mapped[str | None] = mapped_column(String(100), nullable=True)
     male_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     female_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     setup_date: Mapped[date | None] = mapped_column(Date, nullable=True)

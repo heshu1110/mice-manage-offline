@@ -1,9 +1,9 @@
-const CACHE_NAME = "mice-manage-shell-v1";
+const CACHE_NAME = "mice-manage-shell-v8";
 const APP_SHELL = [
   "/",
   "/manifest.json",
-  "/static/styles.css",
-  "/static/offline.js",
+  "/static/styles.css?v=20260326e",
+  "/static/offline.js?v=20260326g",
   "/static/icons/icon-192.svg",
   "/static/icons/icon-512.svg",
 ];

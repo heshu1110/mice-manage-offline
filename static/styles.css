@@ -635,6 +635,73 @@ dd {
     gap: 8px;
 }
 
+.field-header-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.field-header-inline > label {
+    margin: 0;
+}
+
+.tiny-inline-button {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.multi-code-list {
+    display: grid;
+    gap: 10px;
+}
+
+.multi-code-row {
+    display: grid;
+    gap: 8px;
+}
+
+.multi-code-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.multi-code-input-row input {
+    flex: 1;
+}
+
+.sub-field-label {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.multi-line-value {
+    word-break: break-word;
+    line-height: 1.6;
+}
+
+.remove-inline-button {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0;
+    border-radius: 999px;
+    color: #a34732;
+    border-color: #d9b9a6;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.remove-inline-button:hover {
+    background: #f7e5de;
+}
+
 .queue-delete-button {
     width: 26px;
     min-width: 26px;

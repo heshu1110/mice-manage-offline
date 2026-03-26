@@ -17,7 +17,7 @@
     </div>
 
     <form method="get" action="/dashboard" class="filters">
-        <input type="text" name="q" placeholder="搜索笼号 / 品系 / 编号" value="{{ filters.q }}">
+        <input type="text" name="q" placeholder="搜索笼号 / 基因型 / 负责人" value="{{ filters.q }}">
         <select name="room_id">
             <option value="">房间</option>
             {% for room in rooms %}
