@@ -1331,7 +1331,9 @@
       createSetupDateEl,
       createStatusEl,
       createNoteEl,
-    ].forEach((element) => {
+    ]
+      .filter(Boolean)
+      .forEach((element) => {
       const eventName = element.tagName === "SELECT" ? "change" : "input";
       element.addEventListener(eventName, saveDraft);
     });
