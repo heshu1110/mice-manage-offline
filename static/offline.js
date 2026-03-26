@@ -575,7 +575,7 @@
 
     queueListEl.innerHTML = "";
     if (!filtered.length) {
-      queueListEl.innerHTML = "<p class='muted'>当前筛选条件下没有记录。</p>";
+      queueListEl.innerHTML = "<p class='muted'>????????????</p>";
       return;
     }
 
@@ -584,23 +584,34 @@
       block.className = "timeline-item";
       block.innerHTML =
         "<div class='timeline-head'><strong>" +
-        (item.cage_code || "未指定笼位") +
+        (item.cage_code || "?????") +
         " / " +
         actionTypeLabel(item.action_type) +
-        "</strong><span class='queue-status queue-" +
+        "</strong><div class='timeline-head-actions'><span class='queue-status queue-" +
         item.sync_status +
         "'>" +
         statusLabel(item.sync_status) +
-        "</span></div><p>" +
+        "</span><button type='button' class='queue-delete-button' data-op-id='" +
+        item.op_id +
+        "' aria-label='?????????'>?</button></div></div><p>" +
         queuePayloadSummary(item) +
-        "</p><p class='muted'>操作人 " +
+        "</p><p class='muted'>??? " +
         item.operator_name +
-        " | 时间 " +
+        " | ?? " +
         formatTime(item.client_created_at) +
         "</p>" +
-        (item.sync_message ? "<p class='muted'>同步结果：" + item.sync_message + "</p>" : "");
+        (item.sync_message ? "<p class='muted'>?????" + item.sync_message + "</p>" : "");
       queueListEl.appendChild(block);
     });
+  }
+
+  async function deleteQueueItem(opId) {
+    if (!opId) {
+      return;
+    }
+    await queueDelete(opId);
+    await refreshQueueState();
+    showNotice("???????????", "success");
   }
 
   async function saveBootstrap(payload) {
@@ -1048,18 +1059,27 @@
       (item) => item.sync_status === "pending" || item.sync_status === "failed"
     );
     if (!exportableItems.length) {
-      showNotice("当前没有待导出记录。", "info");
+      showNotice("??????????", "info");
       return;
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const payload = buildExportPayload(exportableItems);
     downloadJsonFile("mice-manage-sync-" + timestamp + ".json", payload);
+
+    for (const item of exportableItems) {
+      item.sync_status = "success";
+      item.sync_message = "??? JSON????????";
+      await queuePut(item);
+    }
+
+    await refreshQueueState();
     showNotice(
-      "已导出 " + exportableItems.length + " 条记录。导入成功前，不要先清理本地队列。",
+      "??? " + exportableItems.length + " ????????????????????????????????????",
       "success"
     );
   }
+
 
   async function importBootstrapFromFile(file) {
     if (!file) {
@@ -1344,6 +1364,25 @@
         button.classList.add("active");
         renderQueue();
       });
+    });
+
+    queueListEl.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const deleteButton = target.closest(".queue-delete-button");
+      if (!deleteButton) {
+        return;
+      }
+      const opId = deleteButton.getAttribute("data-op-id");
+      if (!opId) {
+        return;
+      }
+      if (!window.confirm("?????????????")) {
+        return;
+      }
+      await deleteQueueItem(opId);
     });
   }
 

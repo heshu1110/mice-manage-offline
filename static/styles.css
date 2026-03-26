@@ -629,6 +629,29 @@ dd {
     border: 1px solid #eadbc5;
 }
 
+.timeline-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.queue-delete-button {
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid #d8c2a0;
+    background: #fffaf2;
+    color: #8b5e34;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.queue-delete-button:hover {
+    background: #f4e7d3;
+}
+
 .queue-status {
     display: inline-flex;
     align-items: center;

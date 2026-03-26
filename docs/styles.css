@@ -62,6 +62,28 @@ a {
     flex-wrap: wrap;
 }
 
+.header-import-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.header-import-form input[type="file"] {
+    width: 190px;
+    min-width: 190px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: white;
+    font-size: 12px;
+}
+
+.header-import-form .tiny-button {
+    width: auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+}
+
 .page {
     max-width: 1200px;
     margin: 0 auto;
@@ -157,6 +179,13 @@ a {
     gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 12px;
+}
+
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .filter-row {
@@ -600,6 +629,29 @@ dd {
     border: 1px solid #eadbc5;
 }
 
+.timeline-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.queue-delete-button {
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid #d8c2a0;
+    background: #fffaf2;
+    color: #8b5e34;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.queue-delete-button:hover {
+    background: #f4e7d3;
+}
+
 .queue-status {
     display: inline-flex;
     align-items: center;
@@ -643,12 +695,61 @@ dd {
     border-collapse: collapse;
 }
 
+.table-wrap {
+    overflow-x: auto;
+}
+
 .data-table th,
 .data-table td {
     padding: 12px;
     border-bottom: 1px solid #ece0cd;
     text-align: left;
     vertical-align: top;
+}
+
+.records-table {
+    table-layout: fixed;
+}
+
+.records-table .time-cell,
+.records-table .cage-cell,
+.records-table .user-cell,
+.records-table .action-cell {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.records-table .purpose-cell,
+.records-table .note-cell {
+    white-space: normal;
+    word-break: break-word;
+    min-width: 220px;
+    line-height: 1.55;
+}
+
+.user-admin-list {
+    display: grid;
+    gap: 16px;
+}
+
+.user-admin-card {
+    display: grid;
+    gap: 12px;
+}
+
+.user-admin-form {
+    display: grid;
+    gap: 14px;
+}
+
+.user-admin-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.user-admin-actions {
+    margin-bottom: 0;
 }
 
 .form-actions {
