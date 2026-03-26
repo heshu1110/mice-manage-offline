@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <div class="panel-header">
+        <div>
+            <h1>{{ image_title }}</h1>
+            <p class="muted">{{ image_subtitle }}</p>
+        </div>
+        <a class="ghost-button link-button" href="{{ image_path }}" target="_blank" rel="noopener">打开原图</a>
+    </div>
+
+    <div class="image-preview-wrap">
+        <img class="image-preview" src="{{ image_path }}" alt="PCR图片预览">
+    </div>
+</section>
+{% endblock %}

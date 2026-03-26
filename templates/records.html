@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    {% if selected_cage %}
+    <h1>{{ selected_cage.cage_code }} 的操作记录</h1>
+    <p class="muted">这里展示这个笼位的完整历史记录。</p>
+    {% else %}
+    <h1>全部操作记录</h1>
+    <p class="muted">这个页面用于查看系统里的完整历史记录。</p>
+    {% endif %}
+</section>
+
+<section class="panel">
+    <div class="table-wrap">
+        <table class="data-table records-table">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>笼位</th>
+                    <th>用户</th>
+                    <th>动作</th>
+                    <th>用途</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td class="time-cell">{{ record.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                    <td class="cage-cell"><a href="/cages/{{ record.cage.id }}">{{ record.cage.cage_code }}</a></td>
+                    <td class="user-cell">{{ record.user.name }}</td>
+                    <td class="action-cell">{{ record_view[record.id]["action"] }}</td>
+                    <td class="purpose-cell">{{ record_view[record.id]["purpose"] }}</td>
+                    <td class="note-cell">{{ record_view[record.id]["note"] }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">暂无记录。</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

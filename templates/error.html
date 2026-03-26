@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>出错了</h1>
+    <p class="muted">状态码：{{ status_code }}</p>
+    <p>{{ detail }}</p>
+    <a class="primary-link" href="/">返回首页</a>
+</section>
+{% endblock %}

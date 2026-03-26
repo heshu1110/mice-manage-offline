@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h1>服务器笼位数据</h1>
+            <p class="muted">这是服务器当前保存的数据，用来核对同步后的最新状态。</p>
+        </div>
+        <div class="top-actions">
+            {% if current_user %}
+            <a class="ghost-button link-button" href="/exports/bootstrap.json">导出基础数据 JSON</a>
+            {% else %}
+            <a class="ghost-button link-button" href="/login">先登录再操作</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" action="/dashboard" class="filters">
+        <input type="text" name="q" placeholder="搜索笼号 / 品系 / 编号" value="{{ filters.q }}">
+        <select name="room_id">
+            <option value="">房间</option>
+            {% for room in rooms %}
+            <option value="{{ room.id }}" {% if filters.room_id == room.id %}selected{% endif %}>{{ room.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="owner_id">
+            <option value="">负责人</option>
+            {% for owner in owners %}
+            <option value="{{ owner.id }}" {% if filters.owner_id == owner.id %}selected{% endif %}>{{ owner.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="status_value">
+            <option value="">状态</option>
+            {% for status_value in status_options %}
+            <option value="{{ status_value }}" {% if filters.status_value == status_value %}selected{% endif %}>{{ status_value }}</option>
+            {% endfor %}
+        </select>
+        <select name="generation_alert">
+            <option value="">换代</option>
+            <option value="yes" {% if filters.generation_alert == "yes" %}selected{% endif %}>是</option>
+            <option value="no" {% if filters.generation_alert == "no" %}selected{% endif %}>否</option>
+        </select>
+        <select name="infertility_alert">
+            <option value="">不孕不育</option>
+            <option value="yes" {% if filters.infertility_alert == "yes" %}selected{% endif %}>是</option>
+            <option value="no" {% if filters.infertility_alert == "no" %}selected{% endif %}>否</option>
+        </select>
+        <select name="overcrowding_alert">
+            <option value="">崽待处理</option>
+            <option value="yes" {% if filters.overcrowding_alert == "yes" %}selected{% endif %}>是</option>
+            <option value="no" {% if filters.overcrowding_alert == "no" %}selected{% endif %}>否</option>
+        </select>
+        <button type="submit">筛选</button>
+    </form>
+</section>
+
+<section class="panel announcement-panel">
+    <div class="announcement-board">
+        <div class="section-head">
+            <div>
+                <h2>公告</h2>
+                <p class="muted">所有登录用户都可以发布和删除公告。</p>
+            </div>
+        </div>
+        {% if current_user %}
+        <form method="post" action="/announcements" class="stack-form">
+            <input type="hidden" name="next_url" value="/dashboard">
+            <textarea name="content" rows="3" placeholder="输入需要提醒大家的事项"></textarea>
+            <button type="submit">发布公告</button>
+        </form>
+        {% else %}
+        <p class="muted">登录后可发布公告。</p>
+        {% endif %}
+
+        <div class="announcement-list">
+            {% for announcement in announcements %}
+            <article class="info-box announcement-item">
+                <div class="announcement-head">
+                    <strong>{{ announcement.user.name }}</strong>
+                    <div class="announcement-meta">
+                        <span>{{ announcement.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+                        {% if current_user %}
+                        <form method="post" action="/announcements/{{ announcement.id }}/delete" class="delete-form inline-delete-form" onsubmit="return confirm('确认删除这条公告吗？');">
+                            <input type="hidden" name="next_url" value="/dashboard">
+                            <button type="submit" class="danger-button tiny-button">删除公告</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                <p>{{ announcement.content }}</p>
+            </article>
+            {% else %}
+            <p class="muted">当前还没有公告。</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="card-grid">
+    {% for cage in cages %}
+    <article class="cage-card">
+        <div class="card-top">
+            <div>
+                <h2>{{ cage.cage_code }}</h2>
+                <p>{{ cage.strain }}</p>
+            </div>
+            <div class="card-badges">
+                {% if generation_alerts.get(cage.id) %}
+                <span class="alert-badge">换代</span>
+                {% endif %}
+                {% if infertility_alerts.get(cage.id) %}
+                <span class="infertility-badge">不孕不育</span>
+                {% endif %}
+                {% if overcrowding_alerts.get(cage.id) %}
+                <span class="warning-badge">崽待处理</span>
+                {% endif %}
+                <span class="status-badge">{{ cage.status }}</span>
+            </div>
+        </div>
+        <dl class="meta-grid">
+            <div>
+                <dt>房间</dt>
+                <dd>{{ cage.room.name }}</dd>
+            </div>
+            <div>
+                <dt>笼架</dt>
+                <dd>{{ cage.rack.name }}</dd>
+            </div>
+            <div>
+                <dt>负责人</dt>
+                <dd>{{ cage.owner.name }}</dd>
+            </div>
+            <div>
+                <dt>仔鼠数</dt>
+                <dd>{{ cage.pup_count }}</dd>
+            </div>
+            <div>
+                <dt>父本编号-DOB</dt>
+                <dd>{{ cage.male_code or "-" }}</dd>
+            </div>
+            <div>
+                <dt>母本编号-DOB</dt>
+                <dd>{{ cage.female_code or "-" }}</dd>
+            </div>
+        </dl>
+        {% set birth_summary = birth_summaries.get(cage.id) %}
+        {% if birth_summary %}
+        <div class="info-box">
+            <strong>最近新生登记</strong>
+            <p>出生日期：{{ birth_summary["birth_date"] }}</p>
+            <p>数量：{{ birth_summary["count"] }}</p>
+            <p>编号：{{ birth_summary["codes"] }}</p>
+            <p>处理：{{ birth_summary["processing"] }}</p>
+            <p class="muted">{{ birth_summary["note"] or "无备注" }}</p>
+        </div>
+        {% endif %}
+        <p class="notes">{{ cage.notes or "暂无备注" }}</p>
+        <a class="primary-link" href="/cages/{{ cage.id }}">查看详情</a>
+    </article>
+    {% else %}
+    <article class="panel">
+        <p>没有匹配到笼位。</p>
+    </article>
+    {% endfor %}
+
+    <a class="cage-card add-cage-card" href="{{ add_cage_href }}">
+        <div class="add-cage-symbol">+</div>
+        <p>新增笼位</p>
+    </a>
+</section>
+{% endblock %}

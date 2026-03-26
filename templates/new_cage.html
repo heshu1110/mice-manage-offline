@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <div class="panel-header">
+        <div>
+            <h1>新增笼位</h1>
+            <p class="muted">填写基础信息后保存，保存成功会返回服务器数据页面。</p>
+        </div>
+        <a class="ghost-button link-button" href="/dashboard">返回数据页</a>
+    </div>
+
+    <form method="post" action="/cages/create" class="stack-form">
+        <label>笼位编号</label>
+        <input type="text" name="cage_code" placeholder="例如 A1-04" required>
+
+        <label>房间</label>
+        <input type="text" name="room_name" placeholder="例如 SPF-A房间">
+
+        <label>笼架</label>
+        <input type="text" name="rack_name" placeholder="例如 A架-1层">
+
+        <label>负责人</label>
+        {% if can_choose_owner %}
+        <select name="owner_user_id">
+            <option value="">未填写</option>
+            {% for user in users %}
+            <option value="{{ user.id }}">{{ user.name }}</option>
+            {% endfor %}
+        </select>
+        {% else %}
+        <input type="hidden" name="owner_user_id" value="{{ fixed_owner.id }}">
+        <input type="text" value="{{ fixed_owner.name }}" disabled>
+        {% endif %}
+
+        <label>品系</label>
+        <input type="text" name="strain" placeholder="例如 C57BL/6">
+
+        <label>状态</label>
+        <select name="status_value">
+            <option value="">未填写</option>
+            {% for status_value in status_options %}
+            <option value="{{ status_value }}">{{ status_value }}</option>
+            {% endfor %}
+        </select>
+
+        <label>父本编号-DOB</label>
+        <input type="text" name="male_code" placeholder="可选">
+
+        <label>母本编号-DOB</label>
+        <input type="text" name="female_code" placeholder="可选">
+
+        <label>合笼日期</label>
+        <input type="date" name="setup_date">
+
+        <label>出生日期</label>
+        <input type="date" name="birth_date">
+
+        <label>仔鼠数量</label>
+        <input type="number" min="0" name="pup_count" value="0">
+
+        <label>备注</label>
+        <textarea name="notes" rows="4" placeholder="补充说明"></textarea>
+
+        <button type="submit">保存笼位</button>
+    </form>
+</section>
+{% endblock %}

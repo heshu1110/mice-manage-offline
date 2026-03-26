@@ -1,0 +1,234 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mice Manage</title>
+    <meta name="theme-color" content="#9a6b3a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <span class="brand">Mice Manage</span>
+        </div>
+        <nav class="nav">
+            <span class="user-chip">GitHub Pages / 离线录入</span>
+        </nav>
+    </header>
+
+    <main class="page">
+        <section class="panel hero-panel">
+            <div class="panel-header">
+                <div>
+                    <h1>离线录入工作台</h1>
+                    <p class="muted">这是部署到 GitHub Pages 的静态离线版。先导入基础数据 JSON，再进行离线录入，最后导出待同步 JSON 回服务器导入。</p>
+                </div>
+                <div class="status-stack">
+                    <span id="network-status" class="status-badge">检测网络中</span>
+                    <span id="server-status" class="user-chip">静态离线模式</span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <article class="stat-card"><span class="stat-label">本地缓存笼位</span><strong id="stat-cages">0</strong></article>
+                <article class="stat-card"><span class="stat-label">待同步</span><strong id="stat-pending">0</strong></article>
+                <article class="stat-card"><span class="stat-label">同步失败</span><strong id="stat-failed">0</strong></article>
+                <article class="stat-card"><span class="stat-label">最近缓存时间</span><strong id="stat-cache-time">未缓存</strong></article>
+            </div>
+
+            <div id="notice-banner" class="notice-banner hidden"></div>
+        </section>
+
+        <section class="panel">
+            <div class="section-head">
+                <div>
+                    <h2>基础数据</h2>
+                    <p class="muted">先从服务器页面导出基础数据 JSON，再在这里导入。</p>
+                </div>
+            </div>
+            <div class="action-row">
+                <button id="import-bootstrap-button" type="button" class="ghost-button">导入基础数据 JSON</button>
+                <input id="bootstrap-file-input" type="file" accept=".json,application/json" class="hidden">
+            </div>
+        </section>
+
+        <section class="detail-layout">
+            <article class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>新增离线操作</h2>
+                        <p class="muted">支持新增笼位、操作记录、新生鼠登记、补处理和笼位字段更新。</p>
+                    </div>
+                    <button id="clear-draft-button" type="button" class="ghost-button">清空草稿</button>
+                </div>
+
+                <form id="offline-form" class="stack-form">
+                    <label for="operator-name">操作人</label>
+                    <select id="operator-name" required></select>
+
+                    <label for="action-type">操作类型</label>
+                    <select id="action-type" required>
+                        <option value="add_usage_record">新增操作记录</option>
+                        <option value="add_birth_record">新增新生鼠登记</option>
+                        <option value="update_birth_processing">补填新生鼠处理</option>
+                        <option value="update_cage_fields">更新笼位字段</option>
+                        <option value="create_cage">新增笼位</option>
+                    </select>
+
+                    <div id="existing-cage-fields" class="stack-form">
+                        <label for="offline-room-filter">房间筛选</label>
+                        <select id="offline-room-filter"></select>
+                        <label for="offline-cage-search">快速搜索笼位</label>
+                        <input id="offline-cage-search" type="text" placeholder="输入笼号 / 房间 / 负责人 / 品系">
+                        <label for="cage-code">笼位</label>
+                        <select id="cage-code"></select>
+                    </div>
+
+                    <div id="usage-fields" class="stack-form action-fields">
+                        <label for="record-action">记录动作</label>
+                        <select id="record-action"></select>
+                        <label for="record-purpose">用途</label>
+                        <input id="record-purpose" type="text" placeholder="例如 PCR 取样、日常观察">
+                        <label for="record-note">备注</label>
+                        <textarea id="record-note" rows="3" placeholder="补充说明"></textarea>
+                    </div>
+
+                    <div id="birth-fields" class="stack-form action-fields hidden">
+                        <label for="birth-date">出生日期</label>
+                        <input id="birth-date" type="date">
+                        <label for="birth-count">数量</label>
+                        <input id="birth-count" type="number" min="0" value="0">
+                        <label for="birth-codes">编号</label>
+                        <input id="birth-codes" type="text" placeholder="例如 1-8">
+                        <label for="birth-note">备注</label>
+                        <textarea id="birth-note" rows="3" placeholder="补充新生鼠情况"></textarea>
+                    </div>
+
+                    <div id="processing-fields" class="stack-form action-fields hidden">
+                        <label for="birth-record-id">新生鼠记录</label>
+                        <select id="birth-record-id"></select>
+                        <label for="processing-text">处理内容</label>
+                        <input id="processing-text" type="text" placeholder="例如 已分笼、已处死">
+                    </div>
+
+                    <div id="update-fields" class="stack-form action-fields hidden">
+                        <label for="update-strain">品系 / 基因型</label>
+                        <input id="update-strain" type="text">
+                        <label for="update-male-code">父本编号-DOB</label>
+                        <input id="update-male-code" type="text">
+                        <label for="update-female-code">母本编号-DOB</label>
+                        <input id="update-female-code" type="text">
+                        <label for="update-setup-date">合笼日期</label>
+                        <input id="update-setup-date" type="date">
+                        <label for="update-room-name">房间</label>
+                        <input id="update-room-name" type="text">
+                        <label for="update-rack-name">笼架</label>
+                        <input id="update-rack-name" type="text">
+                        <label for="update-status">状态</label>
+                        <select id="update-status"></select>
+                        <label for="update-note">备注</label>
+                        <textarea id="update-note" rows="3" placeholder="补充说明"></textarea>
+                    </div>
+
+                    <div id="create-fields" class="stack-form action-fields hidden">
+                        <label for="create-cage-code">笼位编号</label>
+                        <input id="create-cage-code" type="text" placeholder="例如 A1-09">
+                        <label for="create-room-name">房间</label>
+                        <input id="create-room-name" type="text" placeholder="例如 SPF-A房间">
+                        <label for="create-rack-name">笼架</label>
+                        <input id="create-rack-name" type="text" placeholder="例如 A架-1层">
+                        <div id="create-owner-select-wrap" class="stack-form">
+                            <label for="create-owner-id">负责人</label>
+                            <select id="create-owner-id"></select>
+                        </div>
+                        <div id="create-owner-fixed-wrap" class="stack-form hidden">
+                            <label>负责人</label>
+                            <input id="create-owner-fixed" type="text" disabled>
+                        </div>
+                        <label for="create-strain">品系 / 基因型</label>
+                        <input id="create-strain" type="text">
+                        <label for="create-male-code">父本编号-DOB</label>
+                        <input id="create-male-code" type="text">
+                        <label for="create-female-code">母本编号-DOB</label>
+                        <input id="create-female-code" type="text">
+                        <label for="create-setup-date">合笼日期</label>
+                        <input id="create-setup-date" type="date">
+                        <label for="create-status">状态</label>
+                        <select id="create-status"></select>
+                        <label for="create-note">备注</label>
+                        <textarea id="create-note" rows="3" placeholder="补充说明"></textarea>
+                    </div>
+
+                    <button id="save-button" type="submit">保存到本地待同步队列</button>
+                </form>
+            </article>
+
+            <article class="panel">
+                <h2>当前笼位预览</h2>
+                <div id="selected-cage" class="selected-cage-card"><p class="muted">请选择笼位查看缓存信息。</p></div>
+            </article>
+        </section>
+
+        <section class="detail-layout">
+            <article class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>同步中心</h2>
+                        <p class="muted">静态版不直接连服务器；请导出待同步 JSON，再到服务器页面导入。</p>
+                    </div>
+                    <span id="sync-summary" class="user-chip">本地队列尚未加载</span>
+                </div>
+
+                <div class="action-row">
+                    <button id="sync-button" type="button" class="ghost-button">静态模式不可直连同步</button>
+                    <button id="export-json-button" type="button" class="ghost-button">导出待同步 JSON</button>
+                    <button id="retry-failed-button" type="button" class="ghost-button">重试失败记录</button>
+                    <button id="clear-synced-button" type="button" class="ghost-button">清理已同步记录</button>
+                    <button id="refresh-button" type="button" class="ghost-button">静态模式不可刷新服务器</button>
+                </div>
+
+                <div class="filter-row">
+                    <button type="button" class="chip-button active" data-filter="all">全部</button>
+                    <button type="button" class="chip-button" data-filter="pending">待同步</button>
+                    <button type="button" class="chip-button" data-filter="failed">失败</button>
+                    <button type="button" class="chip-button" data-filter="success">已同步</button>
+                </div>
+
+                <div id="queue-list" class="timeline"></div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>本地缓存笼位</h2>
+                        <p class="muted">这里显示的是本设备缓存数据，并叠加了还未同步的本地更改。</p>
+                    </div>
+                    <span class="user-chip" id="cache-time">尚未缓存</span>
+                </div>
+
+                <label for="cage-search">搜索笼位</label>
+                <input id="cage-search" type="text" placeholder="搜索笼号、品系、负责人、状态">
+                <div id="cage-cache-list" class="card-grid"></div>
+            </article>
+        </section>
+    </main>
+
+    <script id="bootstrap-data" type="application/json"></script>
+    <script id="offline-operator-data" type="application/json">null</script>
+    <script id="offline-config" type="application/json">{"mode":"export-only","api_base_url":""}</script>
+    <script src="./offline.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("./sw.js").catch(function (error) {
+                    console.error("Service worker registration failed:", error);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

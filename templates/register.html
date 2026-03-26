@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>注册 owner 账号</h1>
+    <p class="muted">公开注册仅支持 owner。admin 账号只能由主机端脚本创建。</p>
+
+    <form method="post" action="/register" class="stack-form">
+        <label for="name">姓名</label>
+        <input id="name" type="text" name="name" placeholder="请输入姓名" required>
+
+        <label for="role_display">身份</label>
+        <input id="role_display" type="text" value="owner" disabled>
+
+        <label for="phone">手机号</label>
+        <input id="phone" type="text" name="phone" placeholder="可选填写">
+
+        <button type="submit">注册</button>
+    </form>
+
+    <div class="form-actions">
+        <a class="ghost-button link-button" href="/login">返回登录</a>
+    </div>
+</section>
+{% endblock %}

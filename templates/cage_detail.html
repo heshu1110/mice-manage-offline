@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="detail-layout">
+    <article class="panel">
+        <div class="panel-header">
+            <div>
+                <div class="title-row">
+                    <h1>{{ cage.cage_code }}</h1>
+                    <div class="cage-tag-actions">
+                        {% if cage_tag_image %}
+                        <a class="ghost-button link-button small-link" href="/cages/{{ cage.id }}/tag-image/view" target="_blank" rel="noopener">查看笼牌</a>
+                        {% endif %}
+                        {% if current_user and can_edit %}
+                        <form method="post" action="/cages/{{ cage.id }}/tag-image" class="inline-upload-form" enctype="multipart/form-data">
+                            <input type="file" name="cage_tag_image" accept="image/*">
+                            <button type="submit" class="small-button">{% if cage_tag_image %}更新笼牌{% else %}上传笼牌{% endif %}</button>
+                        </form>
+                        {% if cage_tag_image %}
+                        <form method="post" action="/cages/{{ cage.id }}/tag-image/delete" class="delete-form inline-delete-form" onsubmit="return confirm('确认删除笼牌图片吗？');">
+                            <button type="submit" class="danger-button small-button">删除笼牌</button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                <p class="muted">{{ cage.strain or "未填写品系" }} | {{ cage.room.name }} / {{ cage.rack.name }}</p>
+            </div>
+            <span class="status-badge">{{ cage.status }}</span>
+        </div>
+
+        <dl class="detail-grid">
+            <div><dt>负责人</dt><dd>{{ cage.owner.name }}</dd></div>
+            <div><dt>品系 / 基因型</dt><dd>{{ cage.strain or "-" }}</dd></div>
+            <div><dt>父本编号-DOB</dt><dd>{{ cage.male_code or "-" }}</dd></div>
+            <div><dt>母本编号-DOB</dt><dd>{{ cage.female_code or "-" }}</dd></div>
+            <div><dt>合笼日期</dt><dd>{{ cage.setup_date or "-" }}</dd></div>
+            <div><dt>当前仔鼠数</dt><dd>{{ cage.pup_count }}</dd></div>
+            <div><dt>备注</dt><dd>{{ cage.notes or "暂无备注" }}</dd></div>
+        </dl>
+
+        <div class="birth-history">
+            <div class="section-head">
+                <div>
+                    <h2>新生鼠记录</h2>
+                    <p class="muted">每次新增的新生鼠登记都会显示在这里，处理信息可以后续再补填。</p>
+                </div>
+            </div>
+
+            {% for birth in birth_records %}
+            <div class="info-box birth-item">
+                <div class="timeline-head">
+                    <strong>{{ birth["birth_date"] }}</strong>
+                    <span>{{ birth["operator"] }} | {{ birth["created_at"].strftime("%Y-%m-%d %H:%M") }}</span>
+                </div>
+                <p>数量：{{ birth["count"] }}</p>
+                <p>编号：{{ birth["codes"] }}</p>
+                <p>处理：{{ birth["processing"] }}</p>
+
+                {% if birth["pcr_images"] %}
+                <div class="birth-image-list">
+                    {% for image_path in birth["pcr_images"] %}
+                    <div class="image-link-row">
+                        <a class="ghost-button link-button small-link" href="/birth-images/view/{{ birth['id'] }}/{{ loop.index0 }}" target="_blank" rel="noopener">查看PCR图片 {{ loop.index }}</a>
+                        {% if current_user and can_edit %}
+                        <form method="post" action="/cages/{{ cage.id }}/births/{{ birth['id'] }}/pcr-image/delete" class="delete-form inline-delete-form" onsubmit="return confirm('确认删除这张PCR图片吗？');">
+                            <input type="hidden" name="image_path" value="{{ image_path }}">
+                            <button type="submit" class="danger-button small-button">删除PCR图片</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <p class="muted">{{ birth["note"] or "无备注" }}</p>
+
+                {% if current_user and can_edit %}
+                <div class="birth-action-row">
+                    <form method="post" action="/cages/{{ cage.id }}/births/{{ birth['id'] }}/processing" class="stack-form compact-grid inline-compact-form">
+                        <label>处理</label>
+                        <input type="text" name="processing" value="{{ '' if birth['processing'] == '-' else birth['processing'] }}" placeholder="例如 已分笼、已处死">
+                        <button type="submit" class="small-button">保存处理</button>
+                    </form>
+
+                    <form method="post" action="/cages/{{ cage.id }}/births/{{ birth['id'] }}/pcr-image" class="stack-form compact-grid inline-compact-form" enctype="multipart/form-data">
+                        <label>PCR图片</label>
+                        <input type="file" name="pcr_images" accept="image/*" multiple>
+                        <button type="submit" class="small-button">{% if birth["pcr_images"] %}继续上传{% else %}上传图片{% endif %}</button>
+                    </form>
+
+                    <form method="post" action="/cages/{{ cage.id }}/births/{{ birth['id'] }}/delete" class="delete-form" onsubmit="return confirm('确认删除这条新生鼠登记吗？');">
+                        <button type="submit" class="danger-button small-button">删除这条登记</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="muted">暂时还没有新生鼠登记记录。</p>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <h2>更新笼位信息</h2>
+        {% if current_user %}
+            {% if can_edit %}
+            <form method="post" action="/cages/{{ cage.id }}/update" class="stack-form">
+                <label>笼位编号</label>
+                <input type="text" name="cage_code" value="{{ cage.cage_code }}" required>
+
+                <label>品系 / 基因型</label>
+                <input type="text" name="strain" value="{{ cage.strain or '' }}">
+
+                <label>父本编号-DOB</label>
+                <input type="text" name="male_code" value="{{ cage.male_code or '' }}">
+
+                <label>母本编号-DOB</label>
+                <input type="text" name="female_code" value="{{ cage.female_code or '' }}">
+
+                <label>合笼日期</label>
+                <input type="date" name="setup_date" value="{{ cage.setup_date.isoformat() if cage.setup_date else '' }}">
+
+                <label>房间</label>
+                <input type="text" name="room_name" value="{{ cage.room.name }}">
+
+                <label>笼架</label>
+                <input type="text" name="rack_name" value="{{ cage.rack.name }}">
+
+                <label>负责人</label>
+                {% if current_user.role == "admin" %}
+                <select name="owner_user_id">
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user.id == cage.owner_user_id %}selected{% endif %}>{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input type="hidden" name="owner_user_id" value="{{ cage.owner_user_id }}">
+                <input type="text" value="{{ cage.owner.name }}" disabled>
+                {% endif %}
+
+                <label>状态</label>
+                <select name="status_value">
+                    {% for status_value in status_options %}
+                    <option value="{{ status_value }}" {% if status_value == cage.status %}selected{% endif %}>{{ status_value }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>当前仔鼠数</label>
+                <input type="number" min="0" name="pup_count" value="{{ cage.pup_count }}">
+
+                <label>备注</label>
+                <textarea name="notes" rows="4">{{ cage.notes or "" }}</textarea>
+
+                <button type="submit">保存修改</button>
+            </form>
+
+            {% if current_user.role == "admin" or current_user.id == cage.owner_user_id %}
+            <form method="post" action="/cages/{{ cage.id }}/delete" class="delete-form" onsubmit="return confirm('确认删除这个笼位吗？');">
+                <button type="submit" class="danger-button">删除笼位</button>
+            </form>
+            {% endif %}
+            {% else %}
+            <p class="muted">只有该笼位负责人或管理员可以修改笼位信息。</p>
+            {% endif %}
+        {% else %}
+        <p class="muted">登录后可根据权限修改笼位信息。</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="detail-layout">
+    <article class="panel">
+        <h2>登记操作记录</h2>
+        {% if current_user %}
+        <form method="post" action="/cages/{{ cage.id }}/records" class="stack-form">
+            <label>动作</label>
+            <select name="action">
+                {% for action in action_options %}
+                <option value="{{ action }}">{{ action }}</option>
+                {% endfor %}
+            </select>
+
+            <label>用途</label>
+            <input type="text" name="purpose" placeholder="例如 PCR 取样、日常观察">
+
+            <label>备注</label>
+            <textarea name="note" rows="4" placeholder="补充说明"></textarea>
+
+            <button type="submit">提交记录</button>
+        </form>
+        {% else %}
+        <p class="muted">登录后可登记取用、归还、观察等操作记录。</p>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <h2>新生鼠登记</h2>
+        {% if current_user %}
+            {% if can_edit %}
+            <form method="post" action="/cages/{{ cage.id }}/births" class="stack-form">
+                <label>出生日期</label>
+                <input type="date" name="birth_date_value" value="{{ cage.birth_date.isoformat() if cage.birth_date else '' }}">
+
+                <label>数量</label>
+                <input type="number" min="0" name="litter_count" value="0">
+
+                <label>编号</label>
+                <input type="text" name="litter_codes" placeholder="例如 P260325-01 ~ P260325-08">
+
+                <label>备注</label>
+                <textarea name="litter_note" rows="4" placeholder="补充新生鼠情况"></textarea>
+
+                <button type="submit">保存新生登记</button>
+            </form>
+            {% else %}
+            <p class="muted">只有该笼位负责人或管理员可以登记新生鼠信息。</p>
+            {% endif %}
+        {% else %}
+        <p class="muted">登录后可登记新生鼠信息。</p>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <h2>最近记录</h2>
+        <div class="timeline">
+            {% for record in cage.usage_records[:3] %}
+            <div class="timeline-item">
+                <div class="timeline-head">
+                    <strong>{{ record.action }}</strong>
+                    <span>{{ record.user.name }} | {{ record.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+                </div>
+                <p>{{ record.purpose or "未填写用途" }}</p>
+                <p class="muted">{{ record.note or "无备注" }}</p>
+            </div>
+            {% else %}
+            <p>暂无记录。</p>
+            {% endfor %}
+        </div>
+        {% if cage.usage_records|length > 3 %}
+        <a class="ghost-button link-button" href="/records?cage_id={{ cage.id }}">进一步查看</a>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

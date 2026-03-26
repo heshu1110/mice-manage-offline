@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>选择登录账号</h1>
+    <p class="muted">系统会优先记住当前 IP 上次登录的账号。管理员需要密码，负责人可直接登录。</p>
+
+    {% if message %}
+    <div class="notice-banner {{ tone if tone else 'info' }}">{{ message }}</div>
+    {% elif last_login_user %}
+    <div class="status-banner status-info">
+        当前默认账号：{{ last_login_user.name }} / {{ last_login_user.role }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/login" class="stack-form" id="login-form">
+        <label for="user_id">账号</label>
+        <select id="user_id" name="user_id" required autofocus>
+            <option value="" {% if not last_login_user %}selected{% endif %} disabled>请选择账号</option>
+            {% for user in users %}
+            <option
+                value="{{ user.id }}"
+                data-role="{{ user.role }}"
+                {% if last_login_user and user.id == last_login_user.id %}selected{% endif %}
+            >
+                {{ user.name }} / {{ user.role }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <div id="password-row" {% if not last_login_user or last_login_user.role != "admin" %}style="display:none"{% endif %}>
+            <label for="password">管理员密码</label>
+            <input id="password" type="password" name="password" placeholder="请输入管理员密码" autocomplete="current-password">
+            <p class="muted">仅 admin 账号需要输入密码。</p>
+        </div>
+
+        <button type="submit">进入系统</button>
+    </form>
+
+    <div class="form-actions">
+        <a class="ghost-button link-button" href="/register">注册 owner 账号</a>
+    </div>
+</section>
+
+<script>
+    (function () {
+        const userSelect = document.getElementById("user_id");
+        const passwordRow = document.getElementById("password-row");
+        const passwordInput = document.getElementById("password");
+        if (!userSelect || !passwordRow || !passwordInput) return;
+
+        function syncPasswordField() {
+            const selected = userSelect.options[userSelect.selectedIndex];
+            const role = selected ? selected.dataset.role : "";
+            const isAdmin = role === "admin";
+            passwordRow.style.display = isAdmin ? "" : "none";
+            passwordInput.required = isAdmin;
+            if (!isAdmin) {
+                passwordInput.value = "";
+            }
+        }
+
+        userSelect.addEventListener("change", syncPasswordField);
+        syncPasswordField();
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,4 @@
+.venv/
+__pycache__/
+*.pyc
+mice_manage.db

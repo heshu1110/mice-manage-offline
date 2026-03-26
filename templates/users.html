@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h1>用户管理</h1>
+            <p class="muted">只有管理员可以进入。可修改用户名、身份和手机号，也可删除无关联数据的用户。</p>
+        </div>
+    </div>
+
+    {% if status_message %}
+    <div class="notice-banner {{ status_tone if status_tone else 'info' }}">{{ status_message }}</div>
+    {% endif %}
+</section>
+
+<section class="panel">
+    <div class="user-admin-list">
+        {% for user in users %}
+        <article class="info-box user-admin-card">
+            <form method="post" action="/users/{{ user.id }}/update" class="user-admin-form">
+                <div class="user-admin-grid">
+                    <div>
+                        <label for="name-{{ user.id }}">用户名</label>
+                        <input id="name-{{ user.id }}" type="text" name="name" value="{{ user.name }}" required>
+                    </div>
+                    <div>
+                        <label for="role-{{ user.id }}">身份</label>
+                        <select id="role-{{ user.id }}" name="role">
+                            {% for role in role_options %}
+                            <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="phone-{{ user.id }}">手机号</label>
+                        <input id="phone-{{ user.id }}" type="text" name="phone" value="{{ user.phone or '' }}">
+                    </div>
+                    <div>
+                        <label>创建时间</label>
+                        <input type="text" value="{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}" disabled>
+                    </div>
+                </div>
+                <div class="action-row user-admin-actions">
+                    <button type="submit">保存修改</button>
+                </div>
+            </form>
+            <form method="post" action="/users/{{ user.id }}/delete" class="delete-form" onsubmit="return confirm('确认删除这个用户吗？');">
+                <button type="submit" class="danger-button">删除用户</button>
+            </form>
+        </article>
+        {% else %}
+        <p class="muted">当前没有用户。</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
