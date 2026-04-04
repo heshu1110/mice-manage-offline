@@ -242,6 +242,76 @@
     return cage.female_genotype || cage.strain || "";
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatMultilineValue(value, fallback = "-") {
+    const parts = String(value || "")
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (!parts.length) {
+      return fallback;
+    }
+    return parts.map((item) => escapeHtml(item)).join("<br>");
+  }
+
+  function renderSelectedCageTag(cage) {
+    if (!cage.cage_tag_image) {
+      return "";
+    }
+    const imagePath = escapeHtml(cage.cage_tag_image);
+    const altText = escapeHtml((cage.cage_code || "笼位") + " 笼牌");
+    return (
+      "<div class='cage-tag-slot preview-cage-tag-slot'>" +
+      "<div class='cage-tag-card'>" +
+      "<a class='cage-tag-preview' href='" +
+      imagePath +
+      "' target='_blank' rel='noopener' title='点击查看高清笼牌'>" +
+      "<img src='" +
+      imagePath +
+      "' alt='" +
+      altText +
+      "'>" +
+      "</a>" +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderSelectedBirthImages(record) {
+    const images = (record.pcr_images || []).filter(Boolean);
+    if (!images.length) {
+      return "";
+    }
+    return (
+      "<div class='birth-image-list preview-birth-image-list'>" +
+      images
+        .map(
+          (imagePath, index) =>
+            "<div class='pcr-image-card'>" +
+            "<a class='pcr-image-preview' href='" +
+            escapeHtml(imagePath) +
+            "' target='_blank' rel='noopener' title='点击查看高清PCR图片'>" +
+            "<img src='" +
+            escapeHtml(imagePath) +
+            "' alt='PCR图片 " +
+            (index + 1) +
+            "'>" +
+            "</a>" +
+            "</div>"
+        )
+        .join("") +
+      "</div>"
+    );
+  }
+
   function showNotice(message, tone) {
     noticeBannerEl.textContent = message;
     noticeBannerEl.className = "notice-banner";
@@ -409,6 +479,7 @@
         birth_date: "",
         notes: payload.notes || "",
         updated_at: item.client_created_at,
+        cage_tag_image: "",
         birth_records: [],
       });
       return;
@@ -452,6 +523,8 @@
         codes: payload.codes || "-",
         processing: "-",
         note: payload.note || "",
+        pcr_image: "",
+        pcr_images: [],
       });
       return;
     }
@@ -508,56 +581,63 @@
       .map(
         (record) =>
           "<div class='info-box compact-box'><strong>" +
-          (record.birth_date || "-") +
+          escapeHtml(record.birth_date || "-") +
           "</strong><p>数量：" +
           Number(record.count || 0) +
+          "</p><p>编号：" +
+          escapeHtml(record.codes || "-") +
           "</p><p>处理：" +
-          (record.processing || "-") +
+          escapeHtml(record.processing || "-") +
+          "</p>" +
+          renderSelectedBirthImages(record) +
+          "<p class='muted'>" +
+          escapeHtml(record.note || "无备注") +
           "</p></div>"
       )
       .join("");
 
     selectedCageEl.innerHTML =
       "<div class='card-top'><div><h3>" +
-      cage.cage_code +
+      escapeHtml(cage.cage_code) +
       "</h3><p>" +
       "父 " +
-      (resolvedMaleGenotype(cage) || "-") +
+      escapeHtml(resolvedMaleGenotype(cage) || "-") +
       " / 母 " +
-      (resolvedFemaleGenotype(cage) || "-") +
+      escapeHtml(resolvedFemaleGenotype(cage) || "-") +
       "</p></div><span class='status-badge'>" +
-      (cage.status || "未填写状态") +
+      escapeHtml(cage.status || "未填写状态") +
       "</span></div>" +
+      renderSelectedCageTag(cage) +
       "<dl class='detail-grid compact-grid'>" +
       "<div><dt>房间</dt><dd>" +
-      (cage.room || "未填写房间") +
+      escapeHtml(cage.room || "未填写房间") +
       "</dd></div>" +
       "<div><dt>笼架</dt><dd>" +
-      (cage.rack || "未填写笼架") +
+      escapeHtml(cage.rack || "未填写笼架") +
       "</dd></div>" +
       "<div><dt>负责人</dt><dd>" +
-      (cage.owner || "未填写负责人") +
+      escapeHtml(cage.owner || "未填写负责人") +
       "</dd></div>" +
       "<div><dt>父本基因型</dt><dd>" +
-      (resolvedMaleGenotype(cage) || "-") +
+      escapeHtml(resolvedMaleGenotype(cage) || "-") +
       "</dd></div>" +
       "<div><dt>母本基因型</dt><dd>" +
-      (resolvedFemaleGenotype(cage) || "-") +
+      escapeHtml(resolvedFemaleGenotype(cage) || "-") +
       "</dd></div>" +
       "<div><dt>当前仔鼠数</dt><dd>" +
       Number(cage.pup_count || 0) +
       "</dd></div>" +
-      "<div><dt>父本编号-DOB</dt><dd>" +
-      (cage.male_code || "-") +
+      "<div><dt>父本编号-DOB</dt><dd class='multi-line-value'>" +
+      formatMultilineValue(cage.male_code) +
       "</dd></div>" +
-      "<div><dt>母本编号-DOB</dt><dd>" +
-      (cage.female_code || "-") +
+      "<div><dt>母本编号-DOB</dt><dd class='multi-line-value'>" +
+      formatMultilineValue(cage.female_code) +
       "</dd></div>" +
       "<div><dt>合笼日期</dt><dd>" +
-      (cage.setup_date || "-") +
+      escapeHtml(cage.setup_date || "-") +
       "</dd></div>" +
       "<div><dt>备注</dt><dd>" +
-      (cage.notes || "暂无备注") +
+      escapeHtml(cage.notes || "暂无备注") +
       "</dd></div>" +
       "</dl>" +
       "<p class='muted'>最近服务器更新时间：" +

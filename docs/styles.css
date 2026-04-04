@@ -594,6 +594,38 @@ button:disabled {
     min-height: 220px;
 }
 
+.selected-cage-card .cage-tag-slot {
+    margin-top: 0;
+    width: min(100%, 360px);
+}
+
+.selected-cage-card .cage-tag-card {
+    min-height: 0;
+}
+
+.selected-cage-card .cage-tag-preview {
+    min-height: 140px;
+    max-height: 220px;
+}
+
+.selected-cage-card .cage-tag-preview img {
+    max-height: 220px;
+}
+
+.preview-birth-image-list {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    margin-top: 6px;
+}
+
+.selected-cage-card .pcr-image-preview {
+    min-height: 110px;
+    max-height: 150px;
+}
+
+.selected-cage-card .pcr-image-preview img {
+    max-height: 134px;
+}
+
 .meta-grid,
 .detail-grid {
     display: grid;
