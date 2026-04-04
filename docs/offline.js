@@ -1185,6 +1185,23 @@
     URL.revokeObjectURL(url);
   }
 
+  function fileTimestamp(date = new Date()) {
+    const pad = (value) => String(value).padStart(2, "0");
+    return (
+      date.getFullYear() +
+      "-" +
+      pad(date.getMonth() + 1) +
+      "-" +
+      pad(date.getDate()) +
+      "_" +
+      pad(date.getHours()) +
+      "-" +
+      pad(date.getMinutes()) +
+      "-" +
+      pad(date.getSeconds())
+    );
+  }
+
   async function exportPendingJson() {
     const exportableItems = state.queueItems.filter(
       (item) => item.sync_status === "pending" || item.sync_status === "failed"
@@ -1194,7 +1211,7 @@
       return;
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const timestamp = fileTimestamp();
     const payload = buildExportPayload(exportableItems);
     downloadJsonFile("mice-manage-sync-" + timestamp + ".json", payload);
 

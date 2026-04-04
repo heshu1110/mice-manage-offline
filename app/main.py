@@ -514,8 +514,12 @@ def derive_legacy_strain(
 ) -> str:
     male, female = resolve_genotypes(male_genotype, female_genotype, legacy_strain)
     if male and female:
-        return male if male == female else f"父:{male} / 母:{female}"
-    return male or female or normalize_genotype(legacy_strain)
+        return f"父:{male} / 母:{female}"
+    if male:
+        return f"父:{male}"
+    if female:
+        return f"母:{female}"
+    return normalize_genotype(legacy_strain)
 
 
 def sanitize_record_action(value: str | None) -> str:
@@ -604,17 +608,24 @@ def needs_generation_alert(cage: Cage, today: date) -> bool:
 def needs_overcrowding_alert(cage: Cage, today: date) -> bool:
     if is_experiment_cage(cage):
         return False
-    for birth_record in build_birth_records(cage):
-        birth_date_text = str(birth_record["birth_date"]).strip()
-        if not birth_date_text or birth_date_text == "-":
-            continue
-        try:
-            birth_date_value = parse_optional_date(birth_date_text)
-        except ValueError:
-            continue
-        if (today - birth_date_value).days > 21:
-            return True
-    return False
+    latest_birth_record = build_birth_summary(cage)
+    if not latest_birth_record:
+        return False
+
+    birth_date_text = str(latest_birth_record["birth_date"]).strip()
+    if not birth_date_text or birth_date_text == "-":
+        return False
+
+    processing_text = str(latest_birth_record.get("processing") or "").strip()
+    if processing_text and processing_text != "-":
+        return False
+
+    try:
+        birth_date_value = parse_optional_date(birth_date_text)
+    except ValueError:
+        return False
+
+    return (today - birth_date_value).days > 21
 
 
 def needs_infertility_alert(cage: Cage, today: date) -> bool:
@@ -957,7 +968,7 @@ def sync_create_cage(db: Session, operator: User, payload: dict[str, Any]) -> Ca
     if operator.role not in {"admin", "owner"}:
         raise PermissionError("??????????????")
 
-    cage_code = str(payload.get("cage_code") or "").strip().upper()
+    cage_code = str(payload.get("cage_code") or "").strip()
     if not cage_code:
         raise ValueError("绗间綅缂栧彿涓嶈兘涓虹┖")
     if db.query(Cage).filter(Cage.cage_code == cage_code).first():
@@ -1186,6 +1197,7 @@ def home(
                 "generation_alerts": generation_alerts,
                 "overcrowding_alerts": overcrowding_alerts,
                 "infertility_alerts": infertility_alerts,
+                "cage_count": len(cages),
                 "rooms": (
                     db.query(Room)
                     .join(Cage, Cage.room_id == Room.id)
@@ -1284,7 +1296,7 @@ def create_cage(
     if user.role not in {"admin", "owner"}:
         raise HTTPException(status_code=403, detail="??????????????")
 
-    cage_code = cage_code.strip().upper()
+    cage_code = cage_code.strip()
     if not cage_code:
         raise HTTPException(status_code=400, detail="绗间綅缂栧彿涓嶈兘涓虹┖")
     if db.query(Cage).filter(Cage.cage_code == cage_code).first():
@@ -1867,7 +1879,7 @@ def update_cage(
     if not can_edit_cage(user, cage):
         raise HTTPException(status_code=403, detail="??????????")
 
-    cage_code = cage_code.strip().upper()
+    cage_code = cage_code.strip()
     if not cage_code:
         raise HTTPException(status_code=400, detail="????????")
     duplicate = db.query(Cage).filter(Cage.cage_code == cage_code, Cage.id != cage_id).first()
@@ -2117,10 +2129,11 @@ def api_bootstrap(db: Session = Depends(get_db)):
 @app.get("/exports/bootstrap.json", include_in_schema=False)
 def export_bootstrap_json(db: Session = Depends(get_db)):
     payload = build_bootstrap_payload(db)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return JSONResponse(
         content=payload,
         headers={
-            "Content-Disposition": 'attachment; filename="mice-manage-bootstrap.json"'
+            "Content-Disposition": f'attachment; filename="mice-manage-bootstrap-{timestamp}.json"'
         },
     )
 
