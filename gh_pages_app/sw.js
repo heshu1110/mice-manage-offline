@@ -1,10 +1,10 @@
-﻿const CACHE_NAME = "mice-manage-gh-pages-v4";
+﻿const CACHE_NAME = "mice-manage-gh-pages-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.json",
   "./styles.css",
-  "./offline.js?v=20260326j",
+  "./offline.js?v=20260404a",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];
@@ -38,6 +38,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
 });
+
 
 
 

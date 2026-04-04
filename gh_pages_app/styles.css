@@ -60,6 +60,13 @@ a {
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.nav-import-button {
+    width: auto;
+    padding: 10px 14px;
+    white-space: nowrap;
 }
 
 .header-import-form {
@@ -88,6 +95,11 @@ a {
     max-width: 1200px;
     margin: 0 auto;
     padding: 24px;
+}
+
+.page > .notice-banner:first-child {
+    margin-top: 0;
+    margin-bottom: 18px;
 }
 
 .panel {

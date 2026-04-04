@@ -16,45 +16,14 @@
             <span class="brand">Mice Manage</span>
         </div>
         <nav class="nav">
+            <button id="import-bootstrap-button" type="button" class="ghost-button nav-import-button">导入JSON</button>
+            <input id="bootstrap-file-input" type="file" accept=".json,application/json" class="hidden">
             <span class="user-chip">GitHub Pages / 离线录入</span>
         </nav>
     </header>
 
     <main class="page">
-        <section class="panel hero-panel">
-            <div class="panel-header">
-                <div>
-                    <h1>离线录入工作台</h1>
-                    <p class="muted">这是部署到 GitHub Pages 的静态离线版。先导入基础数据 JSON，再进行离线录入，最后导出待同步 JSON 回服务器导入。</p>
-                </div>
-                <div class="status-stack">
-                    <span id="network-status" class="status-badge">检测网络中</span>
-                    <span id="server-status" class="user-chip">静态离线模式</span>
-                </div>
-            </div>
-
-            <div class="stats-grid">
-                <article class="stat-card"><span class="stat-label">本地缓存笼位</span><strong id="stat-cages">0</strong></article>
-                <article class="stat-card"><span class="stat-label">待同步</span><strong id="stat-pending">0</strong></article>
-                <article class="stat-card"><span class="stat-label">同步失败</span><strong id="stat-failed">0</strong></article>
-                <article class="stat-card"><span class="stat-label">最近缓存时间</span><strong id="stat-cache-time">未缓存</strong></article>
-            </div>
-
-            <div id="notice-banner" class="notice-banner hidden"></div>
-        </section>
-
-        <section class="panel">
-            <div class="section-head">
-                <div>
-                    <h2>基础数据</h2>
-                    <p class="muted">先从服务器页面导出基础数据 JSON，再在这里导入。</p>
-                </div>
-            </div>
-            <div class="action-row">
-                <button id="import-bootstrap-button" type="button" class="ghost-button">导入基础数据 JSON</button>
-                <input id="bootstrap-file-input" type="file" accept=".json,application/json" class="hidden">
-            </div>
-        </section>
+        <div id="notice-banner" class="notice-banner hidden"></div>
 
         <section class="detail-layout">
             <article class="panel">
@@ -72,11 +41,11 @@
 
                     <label for="action-type">操作类型</label>
                     <select id="action-type" required>
-                        <option value="add_usage_record">新增操作记录</option>
                         <option value="add_birth_record">新增新生鼠登记</option>
                         <option value="update_birth_processing">补填新生鼠处理</option>
                         <option value="update_cage_fields">更新笼位字段</option>
                         <option value="create_cage">新增笼位</option>
+                        <option value="add_usage_record">新增操作记录</option>
                     </select>
 
                     <div id="existing-cage-fields" class="stack-form">
@@ -219,12 +188,32 @@
                 <div id="cage-cache-list" class="card-grid"></div>
             </article>
         </section>
+
+        <section class="panel hero-panel">
+            <div class="panel-header">
+                <div>
+                    <h1>离线录入工作台</h1>
+                    <p class="muted">这是部署到 GitHub Pages 的静态离线版。先导入基础数据 JSON，再进行离线录入，最后导出待同步 JSON 回服务器导入。</p>
+                </div>
+                <div class="status-stack">
+                    <span id="network-status" class="status-badge">检测网络中</span>
+                    <span id="server-status" class="user-chip">静态离线模式</span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <article class="stat-card"><span class="stat-label">本地缓存笼位</span><strong id="stat-cages">0</strong></article>
+                <article class="stat-card"><span class="stat-label">待同步</span><strong id="stat-pending">0</strong></article>
+                <article class="stat-card"><span class="stat-label">同步失败</span><strong id="stat-failed">0</strong></article>
+                <article class="stat-card"><span class="stat-label">最近缓存时间</span><strong id="stat-cache-time">未缓存</strong></article>
+            </div>
+        </section>
     </main>
 
     <script id="bootstrap-data" type="application/json"></script>
     <script id="offline-operator-data" type="application/json">null</script>
     <script id="offline-config" type="application/json">{"mode":"export-only","api_base_url":""}</script>
-    <script src="./offline.js?v=20260326j"></script>
+    <script src="./offline.js?v=20260404a"></script>
     <script>
         if ("serviceWorker" in navigator) {
             window.addEventListener("load", function () {

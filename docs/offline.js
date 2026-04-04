@@ -4,6 +4,7 @@
   const META_STORE = "meta";
   const QUEUE_STORE = "queue";
   const DRAFT_KEY = "offline_form_draft";
+  const PREFS_KEY = "offline_form_preferences";
   const BOOTSTRAP_KEY = "bootstrap_cache";
   const BOOTSTRAP_TIME_KEY = "bootstrap_cached_at";
 
@@ -861,8 +862,34 @@
     };
   }
 
+  function currentPreferences() {
+    return {
+      operator_name: operatorNameEl.value,
+      offline_cage_search: offlineCageSearchEl.value,
+    };
+  }
+
+  async function savePreferences() {
+    await metaSet(PREFS_KEY, currentPreferences());
+  }
+
   async function saveDraft() {
+    await savePreferences();
     await metaSet(DRAFT_KEY, currentDraft());
+  }
+
+  async function restorePreferences() {
+    const prefs = await metaGet(PREFS_KEY);
+    if (!prefs) {
+      return;
+    }
+    if (
+      prefs.operator_name &&
+      [...operatorNameEl.options].some((option) => option.value === prefs.operator_name)
+    ) {
+      operatorNameEl.value = prefs.operator_name;
+    }
+    offlineCageSearchEl.value = prefs.offline_cage_search || "";
   }
 
   async function restoreDraft() {
@@ -914,6 +941,9 @@
     formEl.reset();
     birthCountEl.value = "0";
     await metaDelete(DRAFT_KEY);
+    await restorePreferences();
+    actionTypeEl.value = "add_birth_record";
+    await refreshOfflineCageSelect();
     syncFormVisibility();
     populateBirthRecordOptions();
     renderSelectedCage();
@@ -954,7 +984,7 @@
     };
 
     if (actionType === "create_cage") {
-      const cageCode = createCageCodeEl.value.trim().toUpperCase();
+      const cageCode = createCageCodeEl.value.trim();
       if (!cageCode) {
         throw new Error("新增笼位时必须填写笼位编号");
       }
@@ -1365,6 +1395,7 @@
 
     offlineCageSearchEl.addEventListener("input", async () => {
       await refreshOfflineCageSelect();
+      await saveDraft();
     });
   }
 
@@ -1382,6 +1413,7 @@
 
     await saveBootstrap(state.serverBootstrap);
     await initializeBootstrapOptions();
+    await restorePreferences();
     await restoreDraft();
     prefillUpdateFields();
     populateBirthRecordOptions();
@@ -1399,15 +1431,23 @@
       event.preventDefault();
       saveButtonEl.disabled = true;
       try {
+        const rememberedOperator = operatorNameEl.value;
+        const rememberedSearch = offlineCageSearchEl.value;
         const item = buildQueueItem();
         await queuePut(item);
+        await savePreferences();
         await metaDelete(DRAFT_KEY);
         formEl.reset();
         birthCountEl.value = "0";
+        actionTypeEl.value = "add_birth_record";
+        operatorNameEl.value = rememberedOperator;
+        offlineCageSearchEl.value = rememberedSearch;
         await refreshQueueState();
+        await refreshOfflineCageSelect();
         syncFormVisibility();
         prefillUpdateFields();
         populateBirthRecordOptions();
+        await saveDraft();
         showNotice("这条操作已经保存到本地待同步队列。", "success");
       } catch (error) {
         showNotice(error.message || "保存失败，请检查填写内容。", "error");
