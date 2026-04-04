@@ -1183,7 +1183,7 @@
 
     const timestamp = fileTimestamp();
     const payload = buildExportPayload(exportableItems);
-    downloadJsonFile("mice-manage-sync-" + timestamp + ".json", payload);
+    downloadJsonFile(timestamp + ".json", payload);
 
     for (const item of exportableItems) {
       item.sync_status = "success";

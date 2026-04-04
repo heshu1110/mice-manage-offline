@@ -2133,7 +2133,7 @@ def export_bootstrap_json(db: Session = Depends(get_db)):
     return JSONResponse(
         content=payload,
         headers={
-            "Content-Disposition": f'attachment; filename="mice-manage-bootstrap-{timestamp}.json"'
+            "Content-Disposition": f'attachment; filename="{timestamp}.json"'
         },
     )
 
